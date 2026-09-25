@@ -1,10 +1,10 @@
 /**
- * Configuration for the opencode-status-line meter, read from JSON files beside OpenCode's
- * own config so a published package never carries it:
+ * Configuration for the opencode-status-line plugin, read from JSON files
+ * beside OpenCode's own config so a published package never carries it:
  *
- *   ~/.config/opencode/opencode-status-line.json     every project
- *   <project>/.opencode-status-line.json             one project
- *   plugin entry options                  the last word, where a host passes them
+ *   ~/.config/opencode/opencode-status-line.json  every project
+ *   <project>/.opencode-status-line.json          one project
+ *   plugin entry options                          the last word, where a host passes them
  *
  * Later sources win key by key. An unreadable or invalid file is ignored with a
  * warning rather than taken as fatal, and an unknown key costs only itself.
@@ -18,7 +18,7 @@ import { join } from "node:path"
 import { DEFAULT_RATE, type LiveReading, type RateOptions } from "./rate.ts"
 import type { CapStyle } from "./render.ts"
 
-/** The slot paths a meter may claim. */
+/** The slot paths the line may claim. */
 export const SURFACES = [
   "prompt.footer.status",
   "prompt.footer",

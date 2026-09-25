@@ -1,5 +1,5 @@
 /**
- * The meter's maths: a sliding window for what is happening right now, a
+ * The speed meter's maths: a sliding window for what is happening right now, a
  * cumulative average since the turn began, and the exact figures steps settle
  * with. The turn fold accumulates exact tokens and decode milliseconds across
  * a turn's steps, so a tool-heavy turn reports one weighted number rather than

@@ -1,8 +1,8 @@
 # opencode-status-line
 
-A live **tokens-per-second** meter and usage line for
-[OpenCode](https://opencode.ai) v2's prompt footer — context window, cache,
-speed, cost and elapsed time in one row.
+A live status line for [OpenCode](https://opencode.ai) v2's prompt footer —
+context window, cache, streaming speed, cost and elapsed time in one
+configurable row.
 
 ```
 ▐████████······▌ 57% — 572.7k │ cache 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · avg 159 tok/s │ $0.75 │ 2h07m
@@ -29,12 +29,14 @@ speed, cost and elapsed time in one row.
 The pieces are `context`, `cache`, `meter`, `cost`, and `time`; `usage.segments`
 sets which appear and in what order, and a segment with nothing to say is
 skipped along with its separator. `/opencode-status-line` shows the numbers
-behind the meter (rolling average, mean, p95).
+behind the speed readings (rolling average, mean, p95).
 
-OpenCode only learns exact token counts at `session.step.ended`; the live
-figures are character estimates calibrated against those exact counts. Tool
-argument streaming (`session.tool.input.delta`) counts as output, and the exact
-decode span starts at the first token, so TTFT is not charged to the model.
+Only the streaming speed is estimated: OpenCode reports exact token counts at
+`session.step.ended`, and the live readings calibrate streamed characters
+against them. Tool argument streaming (`session.tool.input.delta`) counts as
+output, and the exact decode span starts at the first token, so TTFT is not
+charged to the model. Context, cache, cost and time come straight from the
+session's records.
 
 ## Install (local, today)
 
@@ -65,11 +67,11 @@ inherit its default.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `surface` | `"prompt.footer"` | Slot to render in: `prompt.footer` puts the meter at the end of the footer row, right of OpenCode's own usage block (`… tokens · N% used · $0.42 spent`); `prompt.footer.status` puts it inside the status region, left of that block. Also: `prompt.footer.file`, `sidebar.content`, `sidebar.footer`, `session.composer.top`, `home.footer.status` |
+| `surface` | `"prompt.footer"` | Slot to render in: `prompt.footer` puts the line at the end of the footer row, right of OpenCode's own usage block (`… tokens · N% used · $0.42 spent`); `prompt.footer.status` puts it inside the status region, left of that block. Also: `prompt.footer.file`, `sidebar.content`, `sidebar.footer`, `session.composer.top`, `home.footer.status` |
 | `readings` | `["sliding", "cumulative"]` | Live readings to show, in order. `[]` shows only settled figures |
 | `window.ms` | `3000` | Sliding window length |
 | `window.minSpanMs` | `800` | Shortest span trusted before a live figure is shown |
-| `window.minTps` | `0.5` | Below this the meter is noise and hides |
+| `window.minTps` | `0.5` | Below this the speed reading is noise and hides |
 | `window.bucketMs` | `100` | Character sample bucket size |
 | `window.hold` | `true` | Keep the last sliding reading on screen (dimmed) after a stream stops |
 | `calibration.enabled` | `true` | Let finished steps steer `charsPerToken` |
@@ -93,7 +95,7 @@ inherit its default.
 ## Commands
 
 - `/opencode-status-line` (alias `/tps`, also in the palette) — a dialog with the
-  current readings, the rolling average, and the all-time mean and p95.
+  current speed readings, the rolling average, and the all-time mean and p95.
 
 ## Development
 
@@ -101,8 +103,8 @@ inherit its default.
 bun test              # rate.ts, render.ts, config.ts — no OpenCode needed
 ```
 
-`tui.tsx` is the plugin entry; `rate.ts` is the maths, `render.ts` the gauge
-geometry, `config.ts` the JSON loader. Publishing as a package means
-adding a `package.json` with an `exports` map exposing `./tui`, and the peers
-OpenCode provides: `@opentui/core`, `@opentui/solid`, `solid-js`,
+`tui.tsx` is the plugin entry; `rate.ts` is the speed maths, `render.ts` the
+gauge and context-bar geometry, and `config.ts` the JSON loader. Publishing as
+a package means adding a `package.json` with an `exports` map exposing `./tui`,
+and the peers OpenCode provides: `@opentui/core`, `@opentui/solid`, `solid-js`,
 `@opencode/plugin`.

@@ -1,10 +1,13 @@
 /**
- * opencode-status-line — a live tokens-per-second meter for OpenCode's CLI.
+ * opencode-status-line — a live usage-and-speed status line for OpenCode's CLI
+ * prompt footer: context window, cache, streaming speed, cost and elapsed time
+ * in one row, configurable per segment (`usage.segments`).
  *
- * OpenCode only learns exact token counts when a step finishes, so the live
- * figures are estimated from streamed output (`session.text.delta`,
- * `session.reasoning.delta`, `session.tool.input.delta`) and calibrated against
- * the exact counts on `session.step.ended`. Two live readings are available:
+ * The speed segment carries two live readings. OpenCode only learns exact token
+ * counts when a step finishes, so the live figures are estimated from streamed
+ * output (`session.text.delta`, `session.reasoning.delta`,
+ * `session.tool.input.delta`) and calibrated against the exact counts on
+ * `session.step.ended`:
  *
  *   sliding     ↯  what the last few seconds look like, right now
  *   cumulative  avg  the average since the turn began (exact tokens from every
@@ -12,9 +15,9 @@
  *
  * The settled figure folds the whole turn (configurable) and the sliding
  * reading holds its last value once a stream stops (`window.hold`), so the line
- * never loses a counter at the finish line. Presentation: an eighth-cell gauge
- * that stays on screen (it holds the last reading once settled), speed colours,
- * and a stats dialog (`/opencode-status-line`).
+ * never loses its last figure at the finish line. The gauge stays on screen (it
+ * holds the last reading once settled), figures are speed-coloured, and
+ * `/opencode-status-line` shows the numbers behind them.
  *
  * Configuration lives in `~/.config/opencode/opencode-status-line.json` and a
  * project's `.opencode-status-line.json` — see config.ts. The plugin lives in
@@ -44,7 +47,7 @@ import {
 import { contextBar, gaugeFor, type CapInput, type Run, type RunTone } from "./render.ts"
 import { cacheShare, compact, contextUsed, duration, money, pressureTone, type TokenRecord } from "./format.ts"
 
-/** How often the meter redraws while something is on screen. */
+/** How often the line redraws while something is on screen. */
 const TICK_MS = 250
 
 /** The bits of the event payloads this plugin reads. */
@@ -169,7 +172,7 @@ export default Plugin.define({
       typeof event?.data?.sessionID === "string" ? event.data.sessionID : undefined
 
     /**
-     * A meter bug must never take the interface down with it. An uncaught
+     * A plugin bug must never take the interface down with it. An uncaught
      * exception inside an event handler can kill the plugin generation — that
      * is measured, not hypothetical: one half-saved file cost a TUI restart.
      * Handlers report and resume instead.
@@ -434,7 +437,7 @@ export default Plugin.define({
           commands: [
             {
               id: "opencode-status-line.stats",
-              title: "tok/s: statistics",
+              title: "Speed: statistics",
               group: "opencode-status-line",
               palette: true,
               slash: { name: "opencode-status-line", aliases: ["tps"] },
@@ -456,7 +459,7 @@ export default Plugin.define({
        * Everything drawn is rebuilt inside this memo. The parts must not be a
        * plain array computed in the component body: `Show` calls its children
        * untracked, so a static build is evaluated once and then frozen — the
-       * symptom being a meter that never moves. A memo re-reads `version()`
+       * symptom being a line that never repaints. A memo re-reads `version()`
        * (deltas and the ticker) and every repaint gets fresh readings.
        *
        * The try/catch is the same insurance as `safely`: a bug here must dim a

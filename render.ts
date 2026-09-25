@@ -1,6 +1,6 @@
 /**
- * The presentation cap: the live eighth-cell gauge, as tone-tagged runs for
- * the TUI to colour.
+ * Presentation geometry for the line: the live eighth-cell speed gauge and the
+ * context-window bar, as tone-tagged runs for the TUI to colour.
  *
  * Pure and JSX-free, so the geometry can be asserted without a terminal:
  *
