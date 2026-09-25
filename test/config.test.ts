@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DEFAULT_CONFIG, loadConfig, rateOptions } from "./config.ts"
+import { DEFAULT_CONFIG, loadConfig, rateOptions } from "../src/config.ts"
 
 const HOME = "/home/test"
 const DIR = "/work/project"

@@ -18,7 +18,7 @@ import {
   DEFAULT_RATE,
   type Meter,
   type RateOptions,
-} from "./rate.ts"
+} from "../src/rate.ts"
 
 const T0 = 1_000_000
 const WINDOW = DEFAULT_RATE.windowMs

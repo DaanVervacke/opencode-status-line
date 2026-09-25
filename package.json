@@ -1,0 +1,40 @@
+{
+  "name": "opencode-status-line",
+  "version": "0.1.0",
+  "description": "A live status line for OpenCode v2's prompt footer — context window, cache, streaming speed, cost and elapsed time in one configurable row.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Rashid Razak <bib.nexus@gmail.com>",
+  "homepage": "https://github.com/rashidrazak/opencode-status-line#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rashidrazak/opencode-status-line.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rashidrazak/opencode-status-line/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "tui",
+    "statusline",
+    "status-line"
+  ],
+  "exports": {
+    "./tui": "./src/tui.tsx"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@opencode/plugin": "latest"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.5.10",
+    "@opentui/solid": ">=0.5.10",
+    "solid-js": ">=1.9.0"
+  }
+}

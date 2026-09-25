@@ -10,7 +10,7 @@
  * warning rather than taken as fatal, and an unknown key costs only itself.
  *
  * Pure except for the file reads it is handed, so precedence and validation can
- * be exercised without touching a disk (`bun test config.test.ts`).
+ * be exercised without touching a disk (`bun test test/config.test.ts`).
  */
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"

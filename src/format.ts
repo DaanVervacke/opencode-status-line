@@ -4,7 +4,7 @@
  *
  * Pure and JSX-free, so every figure can be asserted without a terminal:
  *
- *   bun test format.test.ts
+ *   bun test test/format.test.ts
  */
 
 /** `572.7k`, `1.2M` — compact counts with one decimal past a thousand. */

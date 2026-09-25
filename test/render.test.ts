@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { contextBar, gauge, gaugeFor, type CapInput } from "./render.ts"
+import { contextBar, gauge, gaugeFor, type CapInput } from "../src/render.ts"
 
 const text = (runs: { text: string }[]): string => runs.map((run) => run.text).join("")
 

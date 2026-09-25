@@ -38,10 +38,20 @@ output, and the exact decode span starts at the first token, so TTFT is not
 charged to the model. Context, cache, cost and time come straight from the
 session's records.
 
-## Install (local, today)
+## Install
 
-Point `cli.json` at the checkout — an absolute path, a path relative to the
-config directory, or a package name all work:
+The plugin is CLI-only, so it belongs in `cli.json` (not `opencode.json`).
+From npm:
+
+```
+~/.config/opencode/cli.json
+{
+  "plugins": ["opencode-status-line"]
+}
+```
+
+From a checkout, point `cli.json` at the directory — an absolute path, a path
+relative to the config directory, or a package name all work:
 
 ```
 ~/.config/opencode/cli.json
@@ -50,8 +60,8 @@ config directory, or a package name all work:
 }
 ```
 
-No build step: OpenCode transpiles `tui.tsx` on load, and edits hot-reload
-straight from the checkout.
+No build step in either case: OpenCode transpiles `tui.tsx` on load, and edits
+to a checkout hot-reload straight from it.
 
 ## Configuration
 
@@ -100,11 +110,28 @@ inherit its default.
 ## Development
 
 ```
-bun test              # rate.ts, render.ts, config.ts — no OpenCode needed
+bun test                    # all four test files — no OpenCode needed
+bun test test/rate.test.ts  # one module
 ```
 
-`tui.tsx` is the plugin entry; `rate.ts` is the speed maths, `render.ts` the
-gauge and context-bar geometry, and `config.ts` the JSON loader. Publishing as
-a package means adding a `package.json` with an `exports` map exposing `./tui`,
-and the peers OpenCode provides: `@opentui/core`, `@opentui/solid`, `solid-js`,
-`@opencode/plugin`.
+`src/tui.tsx` is the plugin entry; `src/rate.ts` is the speed maths,
+`src/render.ts` the gauge and context-bar geometry, `src/format.ts` the
+usage-line formatting, and `src/config.ts` the JSON loader. The root `tui.tsx`
+re-exports the entry for OpenCode's directory plugin resolution — it exists for
+checkouts loaded from `cli.json`; npm consumers reach the entry through the
+exports map instead.
+
+## Publishing
+
+The package ships source, not a bundle — OpenCode transpiles the TSX on load,
+so there is nothing to build before publishing:
+
+```
+npm pack --dry-run     # inspect the tarball
+npm publish
+```
+
+`package.json` exposes `./tui` → `src/tui.tsx` and its `files` allowlist
+carries the whole of `src/`, so the tarball holds the entry and every module it
+imports. `@opencode/plugin` is a dependency; the rendering peers
+(`@opentui/core`, `@opentui/solid`, `solid-js`) come from OpenCode.

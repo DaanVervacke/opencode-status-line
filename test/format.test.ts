@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { cacheShare, compact, contextUsed, duration, money, pressureTone } from "./format.ts"
+import { cacheShare, compact, contextUsed, duration, money, pressureTone } from "../src/format.ts"
 
 describe("compact", () => {
   test("whole numbers below a thousand", () => {

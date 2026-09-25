@@ -4,7 +4,7 @@
  *
  * Pure and JSX-free, so the geometry can be asserted without a terminal:
  *
- *   bun test render.test.ts
+ *   bun test test/render.test.ts
  */
 import { speedTone, type SpeedTone } from "./rate.ts"
 

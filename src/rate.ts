@@ -8,7 +8,7 @@
  * Everything is a pure function of a `Meter` plus options, JSX-free and free
  * of OpenCode imports, so it can be exercised directly:
  *
- *   bun test rate.test.ts
+ *   bun test test/rate.test.ts
  */
 
 export type LiveReading = "sliding" | "cumulative"
