@@ -1,0 +1,368 @@
+/**
+ * Configuration for the opencode-status-line meter, read from JSON files beside OpenCode's
+ * own config so a published package never carries it:
+ *
+ *   ~/.config/opencode/opencode-status-line.json     every project
+ *   <project>/.opencode-status-line.json             one project
+ *   plugin entry options                  the last word, where a host passes them
+ *
+ * Later sources win key by key. An unreadable or invalid file is ignored with a
+ * warning rather than taken as fatal, and an unknown key costs only itself.
+ *
+ * Pure except for the file reads it is handed, so precedence and validation can
+ * be exercised without touching a disk (`bun test config.test.ts`).
+ */
+import { readFileSync } from "node:fs"
+import { homedir } from "node:os"
+import { join } from "node:path"
+import { DEFAULT_RATE, type LiveReading, type RateOptions } from "./rate.ts"
+import type { CapStyle } from "./render.ts"
+
+/** The slot paths a meter may claim. */
+export const SURFACES = [
+  "prompt.footer.status",
+  "prompt.footer",
+  "sidebar.content",
+  "sidebar.footer",
+  "session.composer.top",
+  "home.footer.status",
+] as const
+export type Surface = (typeof SURFACES)[number]
+
+/** The pieces the usage line can draw, in whatever order the config asks. */
+export const USAGE_SEGMENTS = ["context", "cache", "meter", "cost", "time"] as const
+export type UsageSegment = (typeof USAGE_SEGMENTS)[number]
+
+export type CapMode = CapStyle
+
+export interface Config {
+  surface: Surface
+  /** Which live readings the line shows, in order. Empty shows only settled figures. */
+  readings: LiveReading[]
+  windowMs: number
+  minSpanMs: number
+  minTps: number
+  bucketMs: number
+  /** Keep the last sliding reading on screen after a stream stops. */
+  holdSliding: boolean
+  calibrate: boolean
+  charsPerToken: number
+  ratioMin: number
+  ratioMax: number
+  turnFold: boolean
+  capMode: CapMode
+  gaugeWidth: number
+  gaugeFloor: number
+  colors: boolean
+  fastTps: number
+  slowTps: number
+  historySamples: number
+  statsWindowMs: number
+  /** The usage line's segments, in order. */
+  usageSegments: UsageSegment[]
+  /** Drawn between segments of the usage line. */
+  usageSeparator: string
+  /** Context bar width, in cells. */
+  contextWidth: number
+  /** Context fill turns yellow at this percentage. */
+  contextWarn: number
+  /** Context fill turns red at this percentage. */
+  contextDanger: number
+}
+
+export const DEFAULT_CONFIG: Config = {
+  surface: "prompt.footer",
+  readings: ["sliding", "cumulative"],
+  windowMs: DEFAULT_RATE.windowMs,
+  minSpanMs: DEFAULT_RATE.minSpanMs,
+  minTps: DEFAULT_RATE.minTps,
+  bucketMs: DEFAULT_RATE.bucketMs,
+  holdSliding: DEFAULT_RATE.holdSliding,
+  calibrate: DEFAULT_RATE.calibrate,
+  charsPerToken: DEFAULT_RATE.charsPerToken,
+  ratioMin: DEFAULT_RATE.ratioMin,
+  ratioMax: DEFAULT_RATE.ratioMax,
+  turnFold: DEFAULT_RATE.turnFold,
+  capMode: "gauge",
+  gaugeWidth: 11,
+  gaugeFloor: 40,
+  colors: true,
+  fastTps: 50,
+  slowTps: 20,
+  historySamples: DEFAULT_RATE.historySamples,
+  statsWindowMs: 60_000,
+  usageSegments: [...USAGE_SEGMENTS],
+  usageSeparator: " │ ",
+  contextWidth: 14,
+  contextWarn: 70,
+  contextDanger: 90,
+}
+
+/** The maths half of the config, for `rate.ts`. */
+export function rateOptions(config: Config): RateOptions {
+  return {
+    windowMs: config.windowMs,
+    minSpanMs: config.minSpanMs,
+    minTps: config.minTps,
+    bucketMs: config.bucketMs,
+    holdSliding: config.holdSliding,
+    calibrate: config.calibrate,
+    charsPerToken: config.charsPerToken,
+    ratioMin: config.ratioMin,
+    ratioMax: config.ratioMax,
+    turnFold: config.turnFold,
+    historySamples: config.historySamples,
+  }
+}
+
+/** Where configuration is read from, lowest precedence first. */
+export function configPaths(
+  directory: string,
+  home: string = homedir(),
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const root =
+    env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.length > 0 ? env.XDG_CONFIG_HOME : join(home, ".config")
+  return [join(root, "opencode", "opencode-status-line.json"), join(directory, ".opencode-status-line.json")]
+}
+
+export interface LoadDeps {
+  /** Reads a file as UTF-8; undefined when it does not exist. Injectable for tests. */
+  read?: (path: string) => string | undefined
+  home?: string
+  env?: NodeJS.ProcessEnv
+}
+
+export interface LoadedConfig {
+  config: Config
+  warnings: string[]
+  files: string[]
+}
+
+export function loadConfig(directory: string, options?: unknown, deps: LoadDeps = {}): LoadedConfig {
+  const read =
+    deps.read ??
+    ((path: string) => {
+      try {
+        return readFileSync(path, "utf8")
+      } catch {
+        return undefined
+      }
+    })
+  const draft: Draft = { config: { ...DEFAULT_CONFIG }, warnings: [] }
+  const files: string[] = []
+  for (const path of configPaths(directory, deps.home ?? homedir(), deps.env ?? process.env)) {
+    const text = read(path)
+    if (text === undefined) continue
+    files.push(path)
+    let raw: unknown
+    try {
+      raw = JSON.parse(text)
+    } catch (error) {
+      draft.warnings.push(`${path}: invalid JSON (${(error as Error).message}) — ignored`)
+      continue
+    }
+    apply(draft, path, raw)
+  }
+  if (options !== undefined) apply(draft, "plugin options", options)
+  settle(draft)
+  return { config: draft.config, warnings: draft.warnings, files }
+}
+
+/** Cross-key rules a per-key validator cannot express. */
+function settle(draft: Draft): void {
+  const config = draft.config
+  if (config.fastTps <= config.slowTps) {
+    draft.warnings.push(
+      `colors.fast (${config.fastTps}) must be above colors.slow (${config.slowTps}) — using ${DEFAULT_CONFIG.fastTps}/${DEFAULT_CONFIG.slowTps}`,
+    )
+    config.fastTps = DEFAULT_CONFIG.fastTps
+    config.slowTps = DEFAULT_CONFIG.slowTps
+  }
+  if (config.ratioMin >= config.ratioMax) {
+    draft.warnings.push(
+      `calibration.min (${config.ratioMin}) must be below calibration.max (${config.ratioMax}) — using ${DEFAULT_CONFIG.ratioMin}/${DEFAULT_CONFIG.ratioMax}`,
+    )
+    config.ratioMin = DEFAULT_CONFIG.ratioMin
+    config.ratioMax = DEFAULT_CONFIG.ratioMax
+  }
+  if (config.contextWarn >= config.contextDanger) {
+    draft.warnings.push(
+      `usage.warnAt (${config.contextWarn}) must be below usage.dangerAt (${config.contextDanger}) — using ${DEFAULT_CONFIG.contextWarn}/${DEFAULT_CONFIG.contextDanger}`,
+    )
+    config.contextWarn = DEFAULT_CONFIG.contextWarn
+    config.contextDanger = DEFAULT_CONFIG.contextDanger
+  }
+}
+
+interface Draft {
+  config: Config
+  warnings: string[]
+}
+
+const KNOWN_TOP = new Set([
+  "surface",
+  "readings",
+  "window",
+  "calibration",
+  "turn",
+  "cap",
+  "colors",
+  "history",
+  "stats",
+  "usage",
+])
+const READINGS: readonly LiveReading[] = ["sliding", "cumulative"]
+
+function apply(draft: Draft, where: string, raw: unknown): void {
+  if (raw === undefined || raw === null) return
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    draft.warnings.push(`${where}: expected a JSON object — ignored`)
+    return
+  }
+  const root = raw as Record<string, unknown>
+  for (const key of Object.keys(root)) {
+    if (!KNOWN_TOP.has(key)) draft.warnings.push(`${where}: unknown key "${key}" — ignored`)
+  }
+  const config = draft.config
+
+  if ("surface" in root) {
+    const value = root.surface
+    if (typeof value === "string" && (SURFACES as readonly string[]).includes(value)) {
+      config.surface = value as Surface
+    } else {
+      draft.warnings.push(`${where}: surface must be one of ${SURFACES.join(", ")} — using ${config.surface}`)
+    }
+  }
+
+  if ("readings" in root) {
+    const value = root.readings
+    if (!Array.isArray(value)) {
+      draft.warnings.push(`${where}: readings must be an array — using ${config.readings.join(", ")}`)
+    } else {
+      const valid: LiveReading[] = []
+      for (const entry of value) {
+        if (entry === "sliding" || entry === "cumulative") {
+          if (!valid.includes(entry)) valid.push(entry)
+        } else {
+          draft.warnings.push(`${where}: readings has unknown entry "${String(entry)}" — ignored`)
+        }
+      }
+      config.readings = valid
+    }
+  }
+
+  const window = group(draft, where, root, "window")
+  if (window) {
+    num(draft, where, "window.ms", window.ms, 1, 600_000, (value) => (config.windowMs = value))
+    num(draft, where, "window.minSpanMs", window.minSpanMs, 0, 600_000, (value) => (config.minSpanMs = value))
+    num(draft, where, "window.minTps", window.minTps, 0, 10_000, (value) => (config.minTps = value))
+    num(draft, where, "window.bucketMs", window.bucketMs, 1, 10_000, (value) => (config.bucketMs = value))
+    bool(draft, where, "window.hold", window.hold, (value) => (config.holdSliding = value))
+  }
+
+  const calibration = group(draft, where, root, "calibration")
+  if (calibration) {
+    bool(draft, where, "calibration.enabled", calibration.enabled, (value) => (config.calibrate = value))
+    num(draft, where, "calibration.charsPerToken", calibration.charsPerToken, 0.5, 50, (value) => (config.charsPerToken = value))
+    num(draft, where, "calibration.min", calibration.min, 0.5, 50, (value) => (config.ratioMin = value))
+    num(draft, where, "calibration.max", calibration.max, 0.5, 50, (value) => (config.ratioMax = value))
+  }
+
+  const turn = group(draft, where, root, "turn")
+  if (turn) bool(draft, where, "turn.fold", turn.fold, (value) => (config.turnFold = value))
+
+  const cap = group(draft, where, root, "cap")
+  if (cap) {
+    const modes: readonly CapMode[] = ["auto", "gauge", "none"]
+    if (cap.mode !== undefined) {
+      if (typeof cap.mode === "string" && (modes as readonly string[]).includes(cap.mode)) {
+        config.capMode = cap.mode as CapMode
+      } else {
+        draft.warnings.push(`${where}: cap.mode must be one of ${modes.join(", ")} — using ${config.capMode}`)
+      }
+    }
+    num(draft, where, "cap.gaugeWidth", cap.gaugeWidth, 1, 60, (value) => (config.gaugeWidth = value))
+    num(draft, where, "cap.gaugeFloor", cap.gaugeFloor, 0, 10_000, (value) => (config.gaugeFloor = value))
+  }
+
+  const colors = group(draft, where, root, "colors")
+  if (colors) {
+    bool(draft, where, "colors.enabled", colors.enabled, (value) => (config.colors = value))
+    num(draft, where, "colors.fast", colors.fast, 1, 10_000, (value) => (config.fastTps = value))
+    num(draft, where, "colors.slow", colors.slow, 0, 10_000, (value) => (config.slowTps = value))
+  }
+
+  const history = group(draft, where, root, "history")
+  if (history) num(draft, where, "history.samples", history.samples, 1, 100_000, (value) => (config.historySamples = value))
+
+  const stats = group(draft, where, root, "stats")
+  if (stats) num(draft, where, "stats.windowMs", stats.windowMs, 1_000, 86_400_000, (value) => (config.statsWindowMs = value))
+
+  const usage = group(draft, where, root, "usage")
+  if (usage) {
+    if ("segments" in usage) {
+      const value = usage.segments
+      if (!Array.isArray(value)) {
+        draft.warnings.push(`${where}: usage.segments must be an array — kept the previous order`)
+      } else {
+        const wanted: UsageSegment[] = []
+        for (const entry of value) {
+          if (typeof entry === "string" && (USAGE_SEGMENTS as readonly string[]).includes(entry)) {
+            if (!wanted.includes(entry as UsageSegment)) wanted.push(entry as UsageSegment)
+          } else {
+            draft.warnings.push(`${where}: usage.segments has unknown entry "${String(entry)}" — ignored`)
+          }
+        }
+        config.usageSegments = wanted
+      }
+    }
+    if ("separator" in usage) {
+      const value = usage.separator
+      if (typeof value === "string" && value.length > 0 && value.length <= 8) {
+        config.usageSeparator = value
+      } else {
+        draft.warnings.push(`${where}: usage.separator must be a short string — kept "${config.usageSeparator}"`)
+      }
+    }
+    num(draft, where, "usage.contextWidth", usage.contextWidth, 1, 60, (value) => (config.contextWidth = value))
+    num(draft, where, "usage.warnAt", usage.warnAt, 0, 100, (value) => (config.contextWarn = value))
+    num(draft, where, "usage.dangerAt", usage.dangerAt, 0, 100, (value) => (config.contextDanger = value))
+  }
+}
+
+function group(draft: Draft, where: string, root: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+  const value = root[key]
+  if (value === undefined) return undefined
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    draft.warnings.push(`${where}: "${key}" must be an object — ignored`)
+    return undefined
+  }
+  return value as Record<string, unknown>
+}
+
+function num(
+  draft: Draft,
+  where: string,
+  key: string,
+  value: unknown,
+  min: number,
+  max: number,
+  set: (value: number) => void,
+): void {
+  if (value === undefined) return
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) {
+    draft.warnings.push(`${where}: ${key} must be a number from ${min} to ${max} — kept the previous value`)
+    return
+  }
+  set(value)
+}
+
+function bool(draft: Draft, where: string, key: string, value: unknown, set: (value: boolean) => void): void {
+  if (value === undefined) return
+  if (typeof value !== "boolean") {
+    draft.warnings.push(`${where}: ${key} must be true or false — kept the previous value`)
+    return
+  }
+  set(value)
+}
