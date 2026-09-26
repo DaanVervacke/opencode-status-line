@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { contextBar, gauge, gaugeFor, type CapInput } from "../src/render.ts"
+import { columnWidth, contextBar, cutRuns, gauge, gaugeFor, type CapInput, type Run } from "../src/render.ts"
 
 const text = (runs: { text: string }[]): string => runs.map((run) => run.text).join("")
 
@@ -70,5 +70,41 @@ describe("gaugeFor", () => {
 
   test("none draws no gauge", () => {
     expect(gaugeFor({ ...CAP, style: "none" })).toEqual([])
+  })
+})
+
+describe("cutRuns", () => {
+  const runs: Run[] = [
+    { text: "abc", tone: "muted" },
+    { text: "def", tone: "success" },
+  ]
+
+  test("returns the runs untouched when they fit", () => {
+    expect(cutRuns(runs, 6)).toEqual(runs)
+    expect(cutRuns(runs, 20)).toEqual(runs)
+  })
+
+  test("cuts inside a run and ends in an ellipsis, styling kept", () => {
+    expect(cutRuns(runs, 5)).toEqual([
+      { text: "abc", tone: "muted" },
+      { text: "d…", tone: "success" },
+    ])
+    // Only one cell of room left: the ellipsis needs it all.
+    expect(cutRuns(runs, 4)).toEqual([
+      { text: "abc", tone: "muted" },
+      { text: "…", tone: "success" },
+    ])
+  })
+
+  test("no room draws nothing", () => {
+    expect(cutRuns(runs, 0)).toEqual([])
+  })
+})
+
+describe("columnWidth", () => {
+  test("a quarter of the viewport, never below ten", () => {
+    expect(columnWidth(120)).toBe(30)
+    expect(columnWidth(39)).toBe(10) // a quarter is 9, lifted to the floor
+    expect(columnWidth(0)).toBe(10)
   })
 })

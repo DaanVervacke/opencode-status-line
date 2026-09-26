@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { contextBarWidth, DEFAULT_CONFIG, loadConfig, rateOptions } from "../src/config.ts"
+import { contextBarWidth, DEFAULT_CONFIG, loadConfig, paddingFor, rateOptions, stackFor } from "../src/config.ts"
 
 const HOME = "/home/test"
 const DIR = "/work/project"
@@ -118,6 +118,21 @@ describe("validation", () => {
     const { config, warnings } = read({ [PROJECT]: JSON.stringify({ surface: "nowhere" }) })
     expect(config.surface).toBe(DEFAULT_CONFIG.surface)
     expect(warnings.length).toBe(1)
+  })
+
+  test("app joins the slots, and sidebar surfaces stack their segments", () => {
+    expect(read({ [PROJECT]: JSON.stringify({ surface: "app" }) }).config.surface).toBe("app")
+    expect(read({ [PROJECT]: JSON.stringify({ surface: "sidebar.content" }) }).config.surface).toBe("sidebar.content")
+    expect(stackFor("sidebar.content")).toBe("column")
+    expect(stackFor("sidebar.footer")).toBe("column")
+    expect(stackFor("app")).toBe("row")
+    expect(stackFor("prompt.footer")).toBe("row")
+  })
+
+  test("app takes the footer's indent and a clear row underneath", () => {
+    expect(paddingFor("app")).toEqual({ left: 3, right: 2, top: 0, bottom: 1 })
+    expect(paddingFor("sidebar.content")).toEqual({ left: 0, right: 0, top: 0, bottom: 0 })
+    expect(paddingFor("prompt.footer")).toEqual({ left: 0, right: 0, top: 0, bottom: 0 })
   })
 
   test("usage segments keep the configured order and drop unknowns", () => {

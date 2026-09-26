@@ -30,7 +30,7 @@ behaviour and every config key.
 | --- | --- |
 | `src/tui.tsx` | Entry: event wiring, slot render, command. The only file importing `@opencode/plugin`, `solid-js`, or host APIs. |
 | `src/rate.ts` | Speed maths (sliding window, turn fold, calibration, history) and the `USAGE_LABELS` icon/word sets. Pure. |
-| `src/render.ts` | Gauge and context-bar geometry. Pure. |
+| `src/render.ts` | Gauge and context-bar geometry, run cutting for narrow columns. Pure. |
 | `src/format.ts` | Token / money / duration formatting. Pure. |
 | `src/config.ts` | JSON config loader; pure except an injectable `read`. |
 | `test/*.test.ts` | One per pure module; `bun test` runs all four. |
@@ -67,6 +67,14 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   `status === "running"` and `metadata.sessionID`.
 - `session.idle` also closes a turn as a late belt; `endTurn` is idempotent, so
   double-closing is safe.
+- A `sidebar.*` surface is a narrow column: `stackFor` stacks the segments one
+  per row and each row is cut to `columnWidth(context.renderer.width)` with an
+  ellipsis. `context.renderer` is the shared OpenTUI renderer, so read its width
+  inside the render memo — the window resizes under the line.
+- `app` is the window's bottom row: `paddingFor` gives it the footer's 3-column
+  indent, a right margin and one clear row underneath, and the line is cut to
+  `width − padding` so it is not jammed against the window edges. Footers and
+  sidebars are placed by the host and take no padding.
 - A 250 ms ticker repaints only while a stream is active; a 1 s heartbeat keeps
   the elapsed timer and held figures repainting when nothing streams. Stop
   both in the cleanup function.

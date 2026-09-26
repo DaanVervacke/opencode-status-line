@@ -34,6 +34,9 @@ configurable row.
 - **Labels** — the fixed words are glyphs by default: `↯` for the live reading,
   `μ` for the average, `⧉` for cache. `usage.labels: "words"` spells `avg` and
   `cache` back out.
+- **Sidebar-aware** — a `sidebar.*` surface stacks the segments, one per row,
+  each cut to the sidebar's width with an `…`; the footer surfaces join the
+  same segments across one line.
 
 The pieces are `shells`, `context`, `cache`, `meter`, `cost`, and `time`;
 `usage.segments` sets which appear and in what order, and a segment with
@@ -86,7 +89,7 @@ inherit its default.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `surface` | `"prompt.footer"` | Slot to render in: `prompt.footer` puts the line at the end of the footer row, right of OpenCode's own usage block (`… tokens · N% used · $0.42 spent`); `prompt.footer.status` puts it inside the status region, left of that block. Also: `prompt.footer.file`, `sidebar.content`, `sidebar.footer`, `session.composer.top`, `home.footer.status` |
+| `surface` | `"prompt.footer"` | Slot to render in: `prompt.footer` puts the line at the end of the footer row, right of OpenCode's own usage block (`… tokens · N% used · $0.42 spent`); `prompt.footer.status` puts it inside the status region, left of that block. Also: `app` (the window's bottom row, below OpenCode's own footer; drawn with the footer's 3-column indent, a right margin, and a clear row underneath), `sidebar.content`, `sidebar.footer`, `session.composer.top`, `home.footer.status` |
 | `readings` | `["sliding", "cumulative"]` | Live readings to show, in order. `[]` shows only settled figures |
 | `window.ms` | `3000` | Sliding window length |
 | `window.minSpanMs` | `800` | Shortest span trusted before a live figure is shown |

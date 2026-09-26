@@ -22,12 +22,43 @@ import type { CapStyle } from "./render.ts"
 export const SURFACES = [
   "prompt.footer.status",
   "prompt.footer",
+  "app",
   "sidebar.content",
   "sidebar.footer",
   "session.composer.top",
   "home.footer.status",
 ] as const
 export type Surface = (typeof SURFACES)[number]
+
+/**
+ * How a surface lays the segments out. A sidebar is a narrow column — across,
+ * it would be a row of truncated words — so its segments stack, one per row.
+ * Every other surface runs them across a single line.
+ */
+export function stackFor(surface: Surface): "row" | "column" {
+  return surface.startsWith("sidebar.") ? "column" : "row"
+}
+
+/** Room, in cells, around a drawn line. */
+export interface Padding {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+
+/**
+ * The breathing room a surface needs to sit level with the host's own content.
+ * `app` draws at the window's bottom, where the footer indents three columns
+ * and a line in the terminal's last row reads as clipped — so it takes the
+ * footer's indent, a right margin, and one clear row underneath. Footers and
+ * sidebars are placed by the host and stay flush.
+ */
+export function paddingFor(surface: Surface): Padding {
+  return surface === "app"
+    ? { left: 3, right: 2, top: 0, bottom: 1 }
+    : { left: 0, right: 0, top: 0, bottom: 0 }
+}
 
 /** The pieces the usage line can draw, in whatever order the config asks. */
 export const USAGE_SEGMENTS = ["shells", "context", "cache", "meter", "cost", "time"] as const

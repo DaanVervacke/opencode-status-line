@@ -25,8 +25,8 @@
  * OpenCode transpiles the TSX on load and resolves the imports itself.
  */
 import { Plugin } from "@opencode/plugin/tui"
-import { Show, createMemo, createSignal } from "solid-js"
-import { contextBarWidth, loadConfig, rateOptions, type Config } from "./config.ts"
+import { For, Show, createMemo, createSignal } from "solid-js"
+import { contextBarWidth, loadConfig, paddingFor, rateOptions, stackFor, type Config } from "./config.ts"
 import type { Display, Meter } from "./rate.ts"
 import {
   active,
@@ -44,7 +44,7 @@ import {
   tpsStats,
   USAGE_LABELS,
 } from "./rate.ts"
-import { contextBar, gaugeFor, type CapInput, type Run, type RunTone } from "./render.ts"
+import { columnWidth, contextBar, cutRuns, gaugeFor, type CapInput, type Run, type RunTone } from "./render.ts"
 import { cacheShare, compact, contextUsed, duration, money, pressureTone, shellsLabel, type TokenRecord } from "./format.ts"
 
 /** How often the line redraws while something is on screen. */
@@ -100,6 +100,8 @@ export default Plugin.define({
     const opts = rateOptions(config)
     const labels = USAGE_LABELS[config.labels]
     const contextWidth = contextBarWidth(config)
+    const stack = stackFor(config.surface)
+    const padding = paddingFor(config.surface)
     for (const warning of loaded.warnings) {
       console.warn(`opencode-status-line: ${warning}`)
       context.ui.toast.show({ variant: "warning", title: "opencode-status-line", message: warning, duration: 10_000 })
@@ -417,14 +419,16 @@ export default Plugin.define({
     }
 
     /**
-     * The whole line, segment by segment in the configured order. A segment
-     * with nothing to say is skipped along with its separator.
+     * The line's segments in the configured order, each as its own run list;
+     * a segment with nothing to say is skipped. How the rows meet is the
+     * surface's business: joined across for a footer, one per row for a
+     * sidebar.
      */
-    const usageRuns = (sessionID: string, now: number): Run[] => {
+    const usageRows = (sessionID: string, now: number): Run[][] => {
       const session = sessionUsage(sessionID)
       const window = windowInfo(sessionID)
       const limit = contextLimit(window.model ?? session?.model)
-      const runs: Run[] = []
+      const rows: Run[][] = []
       for (const segment of config.usageSegments) {
         let part: Run[] = []
         if (segment === "shells") part = shellRuns(sessionID)
@@ -437,8 +441,17 @@ export default Plugin.define({
         } else if (segment === "cost") part = costRuns(session)
         else if (segment === "time") part = timeRuns(session, now)
         if (part.length === 0) continue
+        rows.push(part)
+      }
+      return rows
+    }
+
+    /** The rows joined across one line, separators between. */
+    const joinRows = (rows: Run[][]): Run[] => {
+      const runs: Run[] = []
+      for (const row of rows) {
         if (runs.length > 0) runs.push(muted(config.usageSeparator))
-        runs.push(...part)
+        runs.push(...row)
       }
       return runs
     }
@@ -504,6 +517,13 @@ export default Plugin.define({
       },
     })
 
+    /** One drawn row: the plain runs, a run that takes clicks, then the rest. */
+    interface RowView {
+      before: Run[]
+      clickable?: Run
+      after: Run[]
+    }
+
     const render = (input: { sessionID?: string }) => {
       let warned = false
       /**
@@ -513,13 +533,18 @@ export default Plugin.define({
        * symptom being a line that never repaints. A memo re-reads `version()`
        * (deltas and the ticker) and every repaint gets fresh readings.
        *
+       * A sidebar surface stacks the segments, one per row, each cut to the
+       * column's width. The window can resize, so the width is read on every
+       * repaint; the footer surfaces join the same rows across one line
+       * instead.
+       *
        * A run with `onClick` is hoisted out of the plain text into its own
        * `<text>`: mouse handlers live on renderables, and a `span` is not one.
        *
        * The try/catch is the same insurance as `safely`: a bug here must dim a
        * line, not break a session.
        */
-      const view = createMemo<{ before: Run[]; clickable?: Run; after: Run[] }>(() => {
+      const view = createMemo<RowView[]>(() => {
         try {
           // The heartbeat's clock: held figures and the elapsed timer repaint
           // even while nothing is streaming.
@@ -527,44 +552,79 @@ export default Plugin.define({
           // Slots such as `prompt.footer` carry no session in their input; the
           // route knows which conversation is on screen.
           const sessionID = input?.sessionID ?? currentSession()
-          if (!sessionID) return { before: [], after: [] }
-          const runs = usageRuns(sessionID, Date.now())
-          const at = runs.findIndex((run) => run.onClick)
-          if (at < 0) return { before: runs, after: [] }
-          return { before: runs.slice(0, at), clickable: runs[at], after: runs.slice(at + 1) }
+          if (!sessionID) return []
+          const rows = usageRows(sessionID, Date.now())
+          if (rows.length === 0) return []
+          const viewport = (context as { renderer?: { width?: number } }).renderer?.width
+          const visible = typeof viewport === "number" && viewport > 0 ? viewport : undefined
+          const lines: Run[][] = []
+          if (stack === "column") {
+            for (const runs of rows) lines.push(visible !== undefined ? cutRuns(runs, columnWidth(visible)) : runs)
+          } else {
+            const joined = joinRows(rows)
+            // The `app` line owns the window's full width, so it fits itself,
+            // padding included; a footer line is fitted by the host around its
+            // own content.
+            const room =
+              visible !== undefined && config.surface === "app"
+                ? Math.max(1, visible - padding.left - padding.right)
+                : undefined
+            lines.push(room !== undefined ? cutRuns(joined, room) : joined)
+          }
+          return lines
+            .filter((runs) => runs.length > 0)
+            .map((runs) => {
+              const at = runs.findIndex((run) => run.onClick)
+              if (at < 0) return { before: runs, after: [] }
+              return { before: runs.slice(0, at), clickable: runs[at], after: runs.slice(at + 1) }
+            })
         } catch (error) {
           if (!warned) {
             warned = true
             console.warn("opencode-status-line: render failed", error)
           }
-          return { before: [], after: [] }
+          return []
         }
       })
       const spans = (runs: Run[]) =>
         runs.map((run) => <span fg={toneColor(run.tone, run.dim ?? false)}>{run.text}</span>)
       const [hovered, setHovered] = createSignal(false)
       return (
-        <Show when={view().before.length > 0 || view().after.length > 0 || view().clickable !== undefined}>
-          <box flexDirection="row">
-            <Show when={view().before.length > 0}>
-              <text wrapMode="none">{spans(view().before)}</text>
-            </Show>
-            <Show when={view().clickable}>
-              {(run) => (
-                <text
-                  wrapMode="none"
-                  onMouseOver={() => setHovered(true)}
-                  onMouseOut={() => setHovered(false)}
-                  onMouseUp={() => run()?.onClick?.()}
-                  fg={hovered() ? context.theme.text.base : toneColor(run().tone, run().dim ?? false)}
-                >
-                  {spans([run()])}
-                </text>
+        <Show when={view().length > 0}>
+          <box
+            flexDirection={stack === "column" ? "column" : "row"}
+            paddingLeft={padding.left}
+            paddingRight={padding.right}
+            paddingTop={padding.top}
+            paddingBottom={padding.bottom}
+          >
+            <For each={view()}>
+              {(row) => (
+                // A row is always its own flex row, so a clickable run sharing
+                // it stays on the same line when the outer box is a column.
+                <box flexDirection="row">
+                  <Show when={row.before.length > 0}>
+                    <text wrapMode="none">{spans(row.before)}</text>
+                  </Show>
+                  <Show when={row.clickable}>
+                    {(run) => (
+                      <text
+                        wrapMode="none"
+                        onMouseOver={() => setHovered(true)}
+                        onMouseOut={() => setHovered(false)}
+                        onMouseUp={() => run()?.onClick?.()}
+                        fg={hovered() ? context.theme.text.base : toneColor(run().tone, run().dim ?? false)}
+                      >
+                        {spans([run()])}
+                      </text>
+                    )}
+                  </Show>
+                  <Show when={row.after.length > 0}>
+                    <text wrapMode="none">{spans(row.after)}</text>
+                  </Show>
+                </box>
               )}
-            </Show>
-            <Show when={view().after.length > 0}>
-              <text wrapMode="none">{spans(view().after)}</text>
-            </Show>
+            </For>
           </box>
         </Show>
       )

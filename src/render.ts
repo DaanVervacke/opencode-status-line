@@ -22,6 +22,36 @@ export interface Run {
 /** How the gauge is chosen; `auto` is the historical alias for `gauge`. */
 export type CapStyle = "auto" | "gauge" | "none"
 
+/**
+ * Cut a run list to `width` cells, each run keeping its tone, ending in `…`
+ * when something had to go. A sidebar column must not spill past the host's
+ * edge, and a silently clipped tail reads as a bug rather than a shortage.
+ */
+export function cutRuns(runs: readonly Run[], width: number): Run[] {
+  if (width <= 0) return []
+  const kept: Run[] = []
+  let used = 0
+  for (const run of runs) {
+    if (used >= width) break
+    const room = width - used
+    if (run.text.length <= room) {
+      kept.push(run)
+      used += run.text.length
+      continue
+    }
+    const text = room <= 1 ? "…" : `${run.text.slice(0, room - 1)}…`
+    kept.push({ ...run, text })
+    used += text.length
+    break
+  }
+  return kept
+}
+
+/** A sidebar column's width: the sidebar's share of the window, never narrower than 10 cells. */
+export function columnWidth(viewport: number): number {
+  return Math.max(10, Math.floor(viewport / 4))
+}
+
 export interface CapInput {
   style: CapStyle
   /** The figure the gauge shows and colours by. */
