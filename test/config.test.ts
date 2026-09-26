@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { contextBarWidth, DEFAULT_CONFIG, loadConfig, paddingFor, rateOptions, stackFor } from "../src/config.ts"
+import {
+  contextBarWidth,
+  DEFAULT_CONFIG,
+  loadConfig,
+  paddingFor,
+  rateOptions,
+  resolvedPadding,
+  stackFor,
+} from "../src/config.ts"
 
 const HOME = "/home/test"
 const DIR = "/work/project"
@@ -129,10 +137,57 @@ describe("validation", () => {
     expect(stackFor("prompt.footer")).toBe("row")
   })
 
-  test("app takes the footer's indent and a clear row underneath", () => {
-    expect(paddingFor("app")).toEqual({ left: 3, right: 2, top: 0, bottom: 1 })
+  test("app takes the composer's indent and clear rows underneath", () => {
+    expect(paddingFor("app")).toEqual({ left: 2, right: 2, top: 0, bottom: 2 })
     expect(paddingFor("sidebar.content")).toEqual({ left: 0, right: 0, top: 0, bottom: 0 })
     expect(paddingFor("prompt.footer")).toEqual({ left: 0, right: 0, top: 0, bottom: 0 })
+  })
+
+  test("padding overrides are kept per surface and win a side at a time", () => {
+    const app = read({
+      [PROJECT]: JSON.stringify({ surface: "app", padding: { app: { left: 0, bottom: 3 } } }),
+    }).config
+    expect(resolvedPadding(app)).toEqual({ left: 0, right: 2, top: 0, bottom: 3 })
+    const footer = read({
+      [PROJECT]: JSON.stringify({ surface: "prompt.footer", padding: { "prompt.footer": { left: 1 } } }),
+    }).config
+    expect(resolvedPadding(footer)).toEqual({ left: 1, right: 0, top: 0, bottom: 0 })
+  })
+
+  test("a placement move swaps the padding along with the surface", () => {
+    const padding = {
+      app: { bottom: 3 },
+      "prompt.footer": { left: 1, top: 1 },
+    }
+    const app = read({ [PROJECT]: JSON.stringify({ surface: "app", padding }) }).config
+    expect(resolvedPadding(app)).toEqual({ left: 2, right: 2, top: 0, bottom: 3 })
+    const footer = read({ [PROJECT]: JSON.stringify({ surface: "prompt.footer", padding }) }).config
+    expect(resolvedPadding(footer)).toEqual({ left: 1, right: 0, top: 1, bottom: 0 })
+  })
+
+  test("padding blocks merge across sources and never touch the defaults", () => {
+    const { config } = read({
+      [GLOBAL]: JSON.stringify({ padding: { app: { left: 0 } } }),
+      [PROJECT]: JSON.stringify({ padding: { app: { bottom: 2 } } }),
+    })
+    expect(config.padding).toEqual({ app: { left: 0, bottom: 2 } })
+    expect(DEFAULT_CONFIG.padding).toEqual({})
+  })
+
+  test("bad padding warns and keeps the surface default", () => {
+    const { config, warnings } = read({
+      [PROJECT]: JSON.stringify({
+        padding: {
+          app: { left: -1, right: "wide", top: 1.5, bottom: 21 },
+          nowhere: { left: 1 },
+          "sidebar.footer": 3,
+        },
+      }),
+    })
+    expect(config.padding).toEqual({})
+    // The default surface is `app`, so its own padding stands.
+    expect(resolvedPadding(config)).toEqual(paddingFor(config.surface))
+    expect(warnings.filter((warning) => warning.includes("padding.")).length).toBe(6)
   })
 
   test("usage segments keep the configured order and drop unknowns", () => {

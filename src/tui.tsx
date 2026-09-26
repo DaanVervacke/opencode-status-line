@@ -26,7 +26,7 @@
  */
 import { Plugin } from "@opencode/plugin/tui"
 import { For, Show, createMemo, createSignal } from "solid-js"
-import { contextBarWidth, loadConfig, paddingFor, rateOptions, stackFor, type Config } from "./config.ts"
+import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, stackFor, type Config } from "./config.ts"
 import type { Display, Meter } from "./rate.ts"
 import {
   active,
@@ -101,7 +101,7 @@ export default Plugin.define({
     const labels = USAGE_LABELS[config.labels]
     const contextWidth = contextBarWidth(config)
     const stack = stackFor(config.surface)
-    const padding = paddingFor(config.surface)
+    const padding = resolvedPadding(config)
     for (const warning of loaded.warnings) {
       console.warn(`opencode-status-line: ${warning}`)
       context.ui.toast.show({ variant: "warning", title: "opencode-status-line", message: warning, duration: 10_000 })
@@ -559,7 +559,15 @@ export default Plugin.define({
           const visible = typeof viewport === "number" && viewport > 0 ? viewport : undefined
           const lines: Run[][] = []
           if (stack === "column") {
-            for (const runs of rows) lines.push(visible !== undefined ? cutRuns(runs, columnWidth(visible)) : runs)
+            for (const runs of rows) {
+              // A sidebar column is cut to its width with the padding kept in
+              // reserve, so configured padding cannot push it past the edge.
+              const room =
+                visible !== undefined
+                  ? Math.max(1, columnWidth(visible) - padding.left - padding.right)
+                  : undefined
+              lines.push(room !== undefined ? cutRuns(runs, room) : runs)
+            }
           } else {
             const joined = joinRows(rows)
             // The `app` line owns the window's full width, so it fits itself,

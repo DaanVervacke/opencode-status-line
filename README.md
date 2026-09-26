@@ -1,8 +1,7 @@
 # opencode-status-line
 
-A live status line for [OpenCode](https://opencode.ai) v2's prompt footer —
-context window, cache, streaming speed, cost and elapsed time in one
-configurable row.
+A live status line for [OpenCode](https://opencode.ai) v2's terminal UI — context
+window, cache, streaming speed, cost and elapsed time in one configurable row.
 
 ```
 ▕██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
@@ -89,7 +88,8 @@ inherit its default.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `surface` | `"prompt.footer"` | Slot to render in: `prompt.footer` puts the line at the end of the footer row, right of OpenCode's own usage block (`… tokens · N% used · $0.42 spent`); `prompt.footer.status` puts it inside the status region, left of that block. Also: `app` (the window's bottom row, below OpenCode's own footer; drawn with the footer's 3-column indent, a right margin, and a clear row underneath), `sidebar.content`, `sidebar.footer`, `session.composer.top`, `home.footer.status` |
+| `surface` | `"app"` | Slot to render in: `app` is the window's bottom row, below OpenCode's own footer (drawn with the composer's 2-column indent, a right margin, and two clear rows underneath); `prompt.footer` puts the line at the end of the footer row, right of OpenCode's own usage block (`… tokens · N% used · $0.42 spent`); `prompt.footer.status` puts it inside the status region, left of that block. Also: `sidebar.content`, `sidebar.footer`, `session.composer.top`, `home.footer.status` |
+| `padding.<surface>` | surface defaults — `app` 2/2/0/2, others 0 | Per-surface `left`/`right`/`top`/`bottom` cell counts. The set follows `surface`, so moving the line between placements keeps each one's own padding |
 | `readings` | `["sliding", "cumulative"]` | Live readings to show, in order. `[]` shows only settled figures |
 | `window.ms` | `3000` | Sliding window length |
 | `window.minSpanMs` | `800` | Shortest span trusted before a live figure is shown |

@@ -71,10 +71,11 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   per row and each row is cut to `columnWidth(context.renderer.width)` with an
   ellipsis. `context.renderer` is the shared OpenTUI renderer, so read its width
   inside the render memo — the window resizes under the line.
-- `app` is the window's bottom row: `paddingFor` gives it the footer's 3-column
-  indent, a right margin and one clear row underneath, and the line is cut to
+- `app` is the window's bottom row: `paddingFor` gives it the composer's 2-column
+  indent, a right margin and two clear rows underneath (each side overridable
+  per surface through the `padding` config), and the line is cut to
   `width − padding` so it is not jammed against the window edges. Footers and
-  sidebars are placed by the host and take no padding.
+  sidebars are placed by the host and take no padding by default.
 - A 250 ms ticker repaints only while a stream is active; a 1 s heartbeat keeps
   the elapsed timer and held figures repainting when nothing streams. Stop
   both in the cleanup function.

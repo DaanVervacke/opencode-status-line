@@ -49,16 +49,23 @@ export interface Padding {
 
 /**
  * The breathing room a surface needs to sit level with the host's own content.
- * `app` draws at the window's bottom, where the footer indents three columns
- * and a line in the terminal's last row reads as clipped — so it takes the
- * footer's indent, a right margin, and one clear row underneath. Footers and
- * sidebars are placed by the host and stay flush.
+ * `app` draws at the window's bottom: the host indents its composer and footer
+ * by two columns, and a line in the terminal's last rows reads as clipped — so
+ * it takes that indent, a right margin, and two clear rows underneath. Footers
+ * and sidebars are placed by the host and stay flush. Any side can be
+ * overruled through the `padding` config; unset sides keep these defaults.
  */
 export function paddingFor(surface: Surface): Padding {
   return surface === "app"
-    ? { left: 3, right: 2, top: 0, bottom: 1 }
+    ? { left: 2, right: 2, top: 0, bottom: 2 }
     : { left: 0, right: 0, top: 0, bottom: 0 }
 }
+
+/**
+ * Padding overrides, keyed by surface: each placement carries its own set, so
+ * changing `surface` swaps the whole set rather than reapplying one.
+ */
+export type SurfacePadding = Partial<Record<Surface, Partial<Padding>>>
 
 /** The pieces the usage line can draw, in whatever order the config asks. */
 export const USAGE_SEGMENTS = ["shells", "context", "cache", "meter", "cost", "time"] as const
@@ -104,10 +111,12 @@ export interface Config {
   contextWarn: number
   /** Context fill turns red at this percentage. */
   contextDanger: number
+  /** Padding overrides per surface; sides left out keep that surface's default. */
+  padding: SurfacePadding
 }
 
 export const DEFAULT_CONFIG: Config = {
-  surface: "prompt.footer",
+  surface: "app",
   readings: ["sliding", "cumulative"],
   windowMs: DEFAULT_RATE.windowMs,
   minSpanMs: DEFAULT_RATE.minSpanMs,
@@ -133,11 +142,17 @@ export const DEFAULT_CONFIG: Config = {
   contextWidth: "gauge",
   contextWarn: 70,
   contextDanger: 90,
+  padding: {},
 }
 
 /** The context bar's cell count, with `"gauge"` resolved to the gauge's width. */
 export function contextBarWidth(config: Config): number {
   return config.contextWidth === "gauge" ? config.gaugeWidth : config.contextWidth
+}
+
+/** The room around the line: the active surface's default with its own overrides. */
+export function resolvedPadding(config: Config): Padding {
+  return { ...paddingFor(config.surface), ...config.padding[config.surface] }
 }
 
 /** The maths half of the config, for `rate.ts`. */
@@ -250,6 +265,7 @@ const KNOWN_TOP = new Set([
   "turn",
   "cap",
   "colors",
+  "padding",
   "history",
   "stats",
   "usage",
@@ -333,6 +349,33 @@ function apply(draft: Draft, where: string, raw: unknown): void {
     bool(draft, where, "colors.enabled", colors.enabled, (value) => (config.colors = value))
     num(draft, where, "colors.fast", colors.fast, 1, 10_000, (value) => (config.fastTps = value))
     num(draft, where, "colors.slow", colors.slow, 0, 10_000, (value) => (config.slowTps = value))
+  }
+
+  const padding = group(draft, where, root, "padding")
+  if (padding) {
+    for (const [surface, sides] of Object.entries(padding)) {
+      if (!(SURFACES as readonly string[]).includes(surface)) {
+        draft.warnings.push(`${where}: padding.${surface} is not a surface — ignored`)
+        continue
+      }
+      if (typeof sides !== "object" || sides === null || Array.isArray(sides)) {
+        draft.warnings.push(`${where}: padding.${surface} must be an object of sides — ignored`)
+        continue
+      }
+      for (const side of ["left", "right", "top", "bottom"] as const) {
+        const value = (sides as Record<string, unknown>)[side]
+        if (value === undefined) continue
+        if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 20) {
+          draft.warnings.push(
+            `${where}: padding.${surface}.${side} must be a whole number of cells from 0 to 20 — kept the previous value`,
+          )
+          continue
+        }
+        // A fresh object per write: the draft's padding starts as DEFAULT_CONFIG's.
+        const named = surface as Surface
+        config.padding = { ...config.padding, [named]: { ...config.padding[named], [side]: value } }
+      }
+    }
   }
 
   const history = group(draft, where, root, "history")
