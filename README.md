@@ -1,7 +1,8 @@
 # opencode-status-line
 
 A live status line for [OpenCode](https://opencode.ai) v2's terminal UI — context
-window, cache, streaming speed, cost and elapsed time in one configurable row.
+window, cache, streaming speed, cost and elapsed time in one configurable row,
+wrapping to more rows when the window is narrow.
 
 ```
 ▕██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
@@ -36,6 +37,13 @@ window, cache, streaming speed, cost and elapsed time in one configurable row.
 - **Sidebar-aware** — a `sidebar.*` surface stacks the segments, one per row,
   each cut to the sidebar's width with an `…`; the footer surfaces join the
   same segments across one line.
+- **Wraps when narrow** — a one-line surface (`app` and the footer slots) joins
+  the segments across one line and moves whole segments that do not fit onto
+  the next row, for as many rows as the width demands. It fits to the width the
+  host actually deals the box — a footer row shares its width with OpenCode's
+  own status text — and cuts with an `…` only a single segment wider than the
+  box; the gauge and context bar keep their configured widths. Widening the
+  window puts the line back on one row.
 
 The pieces are `shells`, `context`, `cache`, `meter`, `cost`, and `time`;
 `usage.segments` sets which appear and in what order, and a segment with

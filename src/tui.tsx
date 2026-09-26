@@ -26,7 +26,7 @@
  */
 import { Plugin } from "@opencode/plugin/tui"
 import { For, Show, createMemo, createSignal } from "solid-js"
-import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, stackFor, type Config } from "./config.ts"
+import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, sharesHostRow, stackFor, type Config } from "./config.ts"
 import type { Display, Meter } from "./rate.ts"
 import {
   active,
@@ -44,7 +44,7 @@ import {
   tpsStats,
   USAGE_LABELS,
 } from "./rate.ts"
-import { columnWidth, contextBar, cutRuns, gaugeFor, type CapInput, type Run, type RunTone } from "./render.ts"
+import { columnWidth, contextBar, cutRuns, gaugeFor, joinedWidth, wrapRows, type CapInput, type Run, type RunTone } from "./render.ts"
 import { cacheShare, compact, contextUsed, duration, money, pressureTone, shellsLabel, type TokenRecord } from "./format.ts"
 
 /** How often the line redraws while something is on screen. */
@@ -527,6 +527,12 @@ export default Plugin.define({
     const render = (input: { sessionID?: string }) => {
       let warned = false
       /**
+       * The width the host actually dealt this box, reported by layout. A
+       * footer row shares its width with the host's own content, so the
+       * renderer's width cannot say how much is ours; only the box can.
+       */
+      const [fitted, setFitted] = createSignal<number | undefined>(undefined)
+      /**
        * Everything drawn is rebuilt inside this memo. The parts must not be a
        * plain array computed in the component body: `Show` calls its children
        * untracked, so a static build is evaluated once and then frozen — the
@@ -534,9 +540,11 @@ export default Plugin.define({
        * (deltas and the ticker) and every repaint gets fresh readings.
        *
        * A sidebar surface stacks the segments, one per row, each cut to the
-       * column's width. The window can resize, so the width is read on every
-       * repaint; the footer surfaces join the same rows across one line
-       * instead.
+       * column's width. A row surface joins the segments across one line and
+       * moves whole segments that do not fit to a further row — as many as the
+       * width demands. It fits to the box's own measured width, which is read
+       * after every layout and therefore also follows a resize without waiting
+       * for the heartbeat.
        *
        * A run with `onClick` is hoisted out of the plain text into its own
        * `<text>`: mouse handlers live on renderables, and a `span` is not one.
@@ -544,7 +552,7 @@ export default Plugin.define({
        * The try/catch is the same insurance as `safely`: a bug here must dim a
        * line, not break a session.
        */
-      const view = createMemo<RowView[]>(() => {
+      const view = createMemo<{ lines: RowView[]; basis: number }>(() => {
         try {
           // The heartbeat's clock: held figures and the elapsed timer repaint
           // even while nothing is streaming.
@@ -552,46 +560,51 @@ export default Plugin.define({
           // Slots such as `prompt.footer` carry no session in their input; the
           // route knows which conversation is on screen.
           const sessionID = input?.sessionID ?? currentSession()
-          if (!sessionID) return []
+          if (!sessionID) return { lines: [], basis: 0 }
           const rows = usageRows(sessionID, Date.now())
-          if (rows.length === 0) return []
+          if (rows.length === 0) return { lines: [], basis: 0 }
           const viewport = (context as { renderer?: { width?: number } }).renderer?.width
-          const visible = typeof viewport === "number" && viewport > 0 ? viewport : undefined
+          const window = typeof viewport === "number" && viewport > 0 ? viewport : undefined
           const lines: Run[][] = []
           if (stack === "column") {
             for (const runs of rows) {
               // A sidebar column is cut to its width with the padding kept in
               // reserve, so configured padding cannot push it past the edge.
               const room =
-                visible !== undefined
-                  ? Math.max(1, columnWidth(visible) - padding.left - padding.right)
+                window !== undefined
+                  ? Math.max(1, columnWidth(window) - padding.left - padding.right)
                   : undefined
               lines.push(room !== undefined ? cutRuns(runs, room) : runs)
             }
           } else {
-            const joined = joinRows(rows)
-            // The `app` line owns the window's full width, so it fits itself,
-            // padding included; a footer line is fitted by the host around its
-            // own content.
+            // A row fits itself to the width its box was actually dealt.
+            // `renderer.width` is the window and would overstate a footer row
+            // shared with the host's own content, so prefer the box's own
+            // laid-out width, measured after the first paint; the renderer
+            // covers the paint before that measurement exists.
+            const measured = fitted()
+            const granted = measured !== undefined && measured > 0 ? measured : window
             const room =
-              visible !== undefined && config.surface === "app"
-                ? Math.max(1, visible - padding.left - padding.right)
-                : undefined
-            lines.push(room !== undefined ? cutRuns(joined, room) : joined)
+              granted !== undefined ? Math.max(1, granted - padding.left - padding.right) : undefined
+            if (room !== undefined) lines.push(...wrapRows(rows, room, config.usageSeparator))
+            else lines.push(joinRows(rows))
           }
-          return lines
-            .filter((runs) => runs.length > 0)
-            .map((runs) => {
-              const at = runs.findIndex((run) => run.onClick)
-              if (at < 0) return { before: runs, after: [] }
-              return { before: runs.slice(0, at), clickable: runs[at], after: runs.slice(at + 1) }
-            })
+          return {
+            basis: joinedWidth(rows, config.usageSeparator),
+            lines: lines
+              .filter((runs) => runs.length > 0)
+              .map((runs) => {
+                const at = runs.findIndex((run) => run.onClick)
+                if (at < 0) return { before: runs, after: [] }
+                return { before: runs.slice(0, at), clickable: runs[at], after: runs.slice(at + 1) }
+              }),
+          }
         } catch (error) {
           if (!warned) {
             warned = true
             console.warn("opencode-status-line: render failed", error)
           }
-          return []
+          return { lines: [], basis: 0 }
         }
       })
       // A `span` takes its colour through `style`, not a bare `fg` prop:
@@ -603,15 +616,28 @@ export default Plugin.define({
         ))
       const [hovered, setHovered] = createSignal(false)
       return (
-        <Show when={view().length > 0}>
+        <Show when={view().lines.length > 0}>
           <box
-            flexDirection={stack === "column" ? "column" : "row"}
+            flexDirection="column"
+            minWidth={0}
+            // A row child's width is dealt by the host's row, and its wrapped
+            // content must not become the basis of that deal: hold the
+            // unwrapped width, or a narrow layout would pin the box narrow
+            // for good. `app` and the composer top stretch to the window and
+            // need no basis.
+            flexBasis={sharesHostRow(config.surface) ? view().basis : undefined}
             paddingLeft={padding.left}
             paddingRight={padding.right}
             paddingTop={padding.top}
             paddingBottom={padding.bottom}
+            onSizeChange={function (this: { width: number }) {
+              const width = this.width
+              // Deferred: the handler runs inside layout, and writing the
+              // signal directly would re-enter the render that caused it.
+              queueMicrotask(() => setFitted(width))
+            }}
           >
-            <For each={view()}>
+            <For each={view().lines}>
               {(row) => (
                 // A row is always its own flex row, so a clickable run sharing
                 // it stays on the same line when the outer box is a column.

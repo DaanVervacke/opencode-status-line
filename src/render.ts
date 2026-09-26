@@ -47,6 +47,67 @@ export function cutRuns(runs: readonly Run[], width: number): Run[] {
   return kept
 }
 
+/**
+ * Pack segment rows into as many lines as `width` demands, moving a row that
+ * does not fit to the next line whole and dropping the separator at the break.
+ * A row wider than the line keeps its drawing and is cut: the gauge and the
+ * context bar have their configured widths, and shrinking them is not this
+ * function's job.
+ */
+export function wrapRows(rows: readonly Run[][], width: number, separator: string): Run[][] {
+  if (width <= 0) return []
+  const lines: Run[][] = []
+  let line: Run[] = []
+  let used = 0
+  const flush = () => {
+    if (line.length > 0) lines.push(line)
+    line = []
+    used = 0
+  }
+  for (const row of rows) {
+    const rowWidth = runsWidth(row)
+    if (rowWidth === 0) continue
+    if (line.length > 0 && used + separator.length + rowWidth > width) flush()
+    if (rowWidth > width) {
+      line = cutRuns(row, width)
+      flush()
+      continue
+    }
+    if (line.length > 0) {
+      line.push({ text: separator, tone: "muted" })
+      used += separator.length
+    }
+    line.push(...row)
+    used += rowWidth
+  }
+  flush()
+  return lines
+}
+
+/**
+ * Every segment as one line: the cells the rows would draw unwrapped,
+ * separators included. The box reserves this as its flex basis, so wrapping
+ * the drawn content never changes the width the host deals the box — without
+ * it, the wrapped content becomes the box's own width and pins it narrow.
+ */
+export function joinedWidth(rows: readonly Run[][], separator: string): number {
+  let width = 0
+  let seen = 0
+  for (const row of rows) {
+    const rowWidth = runsWidth(row)
+    if (rowWidth === 0) continue
+    if (seen > 0) width += separator.length
+    width += rowWidth
+    seen++
+  }
+  return width
+}
+
+/** The cells a row of runs occupies. */
+function runsWidth(runs: readonly Run[]): number {
+  return runs.reduce((sum, run) => sum + run.text.length, 0)
+}
+
 /** A sidebar column's width: the sidebar's share of the window, never narrower than 10 cells. */
 export function columnWidth(viewport: number): number {
   return Math.max(10, Math.floor(viewport / 4))

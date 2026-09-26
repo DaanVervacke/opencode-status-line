@@ -39,6 +39,18 @@ export function stackFor(surface: Surface): "row" | "column" {
   return surface.startsWith("sidebar.") ? "column" : "row"
 }
 
+/**
+ * Whether the host places the slot as one child of a flex row it owns (the
+ * footer contributions share the row with OpenCode's own text) rather than
+ * giving it the full width (the `app` line, the composer top, a sidebar
+ * column). Only a row child needs its natural width held as a flex basis: its
+ * dealt width otherwise depends on its own drawn content, so a wrapped line
+ * would pin the box narrow and never grow back.
+ */
+export function sharesHostRow(surface: Surface): boolean {
+  return surface.startsWith("prompt.footer") || surface.startsWith("home.footer")
+}
+
 /** Room, in cells, around a drawn line. */
 export interface Padding {
   left: number

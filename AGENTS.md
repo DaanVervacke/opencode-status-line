@@ -30,7 +30,7 @@ behaviour and every config key.
 | --- | --- |
 | `src/tui.tsx` | Entry: event wiring, slot render, command. The only file importing `@opencode/plugin`, `solid-js`, or host APIs. |
 | `src/rate.ts` | Speed maths (sliding window, turn fold, calibration, history) and the `USAGE_LABELS` icon/word sets. Pure. |
-| `src/render.ts` | Gauge and context-bar geometry, run cutting for narrow columns. Pure. |
+| `src/render.ts` | Gauge and context-bar geometry, run cutting and wrapping for narrow widths. Pure. |
 | `src/format.ts` | Token / money / duration formatting. Pure. |
 | `src/config.ts` | JSON config loader; pure except an injectable `read`. |
 | `test/*.test.ts` | One per pure module; `bun test` runs all four. |
@@ -73,9 +73,25 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   inside the render memo — the window resizes under the line.
 - `app` is the window's bottom row: `paddingFor` gives it the composer's 2-column
   indent, a right margin and two clear rows underneath (each side overridable
-  per surface through the `padding` config), and the line is cut to
-  `width − padding` so it is not jammed against the window edges. Footers and
-  sidebars are placed by the host and take no padding by default.
+  per surface through the `padding` config). The host sizes the slot to its
+  content — `padding.bottom` already proves that — so the line adds a row
+  rather than being clipped.
+- A one-line surface fits itself to the width its box was **dealt by layout**,
+  not `context.renderer.width`: a footer row shares its width with OpenCode's
+  own status text, so the renderer overstates ours. `onSizeChange` reports the
+  box's border-box width after every layout pass; store it in a signal (defer
+  the write with `queueMicrotask` — the handler runs inside layout) and
+  `wrapRows` moves segments that do not fit whole to further rows, with no cap;
+  only a segment wider than the line is cut.
+- A box in a host row (`sharesHostRow`) pins its **unwrapped** width as its
+  `flexBasis`. A row child's width otherwise derives from its own drawn
+  content, so once the line wrapped, the box's basis was the wrapped width:
+  the shrink deal kept shrinking it and widening the window could never
+  restore the line. With the basis pinned, the deal does not move, the
+  measurement settles in one pass, and a widened row gets the full line back.
+  `app`, the composer top and the sidebars stretch to the host's width and
+  need no basis. Footers and sidebars are placed by the host and take no
+  padding by default.
 - A 250 ms ticker repaints only while a stream is active; a 1 s heartbeat keeps
   the elapsed timer and held figures repainting when nothing streams. Stop
   both in the cleanup function.

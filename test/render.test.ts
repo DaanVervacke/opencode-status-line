@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { columnWidth, contextBar, cutRuns, gauge, gaugeFor, type CapInput, type Run } from "../src/render.ts"
+import { columnWidth, contextBar, cutRuns, gauge, gaugeFor, joinedWidth, wrapRows, type CapInput, type Run } from "../src/render.ts"
 
 const text = (runs: { text: string }[]): string => runs.map((run) => run.text).join("")
 
@@ -98,6 +98,50 @@ describe("cutRuns", () => {
 
   test("no room draws nothing", () => {
     expect(cutRuns(runs, 0)).toEqual([])
+  })
+})
+
+describe("wrapRows", () => {
+  const SEP = " │ "
+
+  test("joins the rows across one line while they fit", () => {
+    const rows: Run[][] = [[{ text: "aa" }], [{ text: "bb", tone: "success" }]]
+    expect(wrapRows(rows, 20, SEP)).toEqual([[{ text: "aa" }, { text: SEP, tone: "muted" }, { text: "bb", tone: "success" }]])
+  })
+
+  test("moves a row that does not fit to the next line whole", () => {
+    const rows: Run[][] = [[{ text: "aaaa" }], [{ text: "bbbb" }], [{ text: "cc" }]]
+    // 4 + 3 + 4 = 11 exactly; the third row starts line two.
+    expect(wrapRows(rows, 11, SEP)).toEqual([
+      [{ text: "aaaa" }, { text: SEP, tone: "muted" }, { text: "bbbb" }],
+      [{ text: "cc" }],
+    ])
+  })
+
+  test("a row wider than the line is cut, keeping its tone", () => {
+    const rows: Run[][] = [[{ text: "abcdef", tone: "warning" }]]
+    expect(wrapRows(rows, 4, SEP)).toEqual([[{ text: "abc…", tone: "warning" }]])
+  })
+
+  test("draws a row per line when the width demands it, with no cap", () => {
+    const rows: Run[][] = [[{ text: "aaaa" }], [{ text: "bbbb" }], [{ text: "cccc" }]]
+    expect(wrapRows(rows, 4, "|")).toEqual([[{ text: "aaaa" }], [{ text: "bbbb" }], [{ text: "cccc" }]])
+  })
+
+  test("empty rows are skipped and no width draws nothing", () => {
+    expect(wrapRows([[], [{ text: "x" }]], 10, SEP)).toEqual([[{ text: "x" }]])
+    expect(wrapRows([[{ text: "x" }]], 0, SEP)).toEqual([])
+  })
+})
+
+describe("joinedWidth", () => {
+  test("sums the segments and the separators between them", () => {
+    expect(joinedWidth([[{ text: "aa" }], [{ text: "bb" }]], " │ ")).toBe(7)
+  })
+
+  test("empty rows take neither cells nor a separator", () => {
+    expect(joinedWidth([[], [{ text: "x" }]], " │ ")).toBe(1)
+    expect(joinedWidth([], " │ ")).toBe(0)
   })
 })
 

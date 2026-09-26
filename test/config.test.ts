@@ -6,6 +6,7 @@ import {
   paddingFor,
   rateOptions,
   resolvedPadding,
+  sharesHostRow,
   stackFor,
 } from "../src/config.ts"
 
@@ -141,6 +142,15 @@ describe("validation", () => {
     expect(paddingFor("app")).toEqual({ left: 2, right: 2, top: 0, bottom: 2 })
     expect(paddingFor("sidebar.content")).toEqual({ left: 0, right: 0, top: 0, bottom: 0 })
     expect(paddingFor("prompt.footer")).toEqual({ left: 0, right: 0, top: 0, bottom: 0 })
+  })
+
+  test("only the footer surfaces share a host row", () => {
+    expect(sharesHostRow("prompt.footer")).toBe(true)
+    expect(sharesHostRow("prompt.footer.status")).toBe(true)
+    expect(sharesHostRow("home.footer.status")).toBe(true)
+    expect(sharesHostRow("app")).toBe(false)
+    expect(sharesHostRow("session.composer.top")).toBe(false)
+    expect(sharesHostRow("sidebar.content")).toBe(false)
   })
 
   test("padding overrides are kept per surface and win a side at a time", () => {
