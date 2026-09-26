@@ -15,7 +15,7 @@
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { DEFAULT_RATE, type LiveReading, type RateOptions } from "./rate.ts"
+import { DEFAULT_RATE, type LabelStyle, type LiveReading, type RateOptions } from "./rate.ts"
 import type { CapStyle } from "./render.ts"
 
 /** The slot paths the line may claim. */
@@ -60,6 +60,8 @@ export interface Config {
   statsWindowMs: number
   /** The usage line's segments, in order. */
   usageSegments: UsageSegment[]
+  /** How the line's fixed words read: glyphs, or spelled out. */
+  labels: LabelStyle
   /** Drawn between segments of the usage line. */
   usageSeparator: string
   /** Context bar width, in cells. */
@@ -92,6 +94,7 @@ export const DEFAULT_CONFIG: Config = {
   historySamples: DEFAULT_RATE.historySamples,
   statsWindowMs: 60_000,
   usageSegments: [...USAGE_SEGMENTS],
+  labels: "icons",
   usageSeparator: " │ ",
   contextWidth: 14,
   contextWarn: 70,
@@ -315,6 +318,15 @@ function apply(draft: Draft, where: string, raw: unknown): void {
           }
         }
         config.usageSegments = wanted
+      }
+    }
+    if ("labels" in usage) {
+      const styles: readonly LabelStyle[] = ["icons", "words"]
+      const value = usage.labels
+      if (typeof value === "string" && (styles as readonly string[]).includes(value)) {
+        config.labels = value as LabelStyle
+      } else {
+        draft.warnings.push(`${where}: usage.labels must be one of ${styles.join(", ")} — using ${config.labels}`)
       }
     }
     if ("separator" in usage) {

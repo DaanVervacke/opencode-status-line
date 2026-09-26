@@ -5,20 +5,21 @@ context window, cache, streaming speed, cost and elapsed time in one
 configurable row.
 
 ```
-▐████████······▌ 57% — 572.7k │ cache 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · avg 159 tok/s │ $0.75 │ 2h07m
+▐████████······▌ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
 ```
 
 - **Sliding (`↯`)** — streamed characters over the last few seconds: what is
   happening right now. When the stream stops the last reading stays on screen,
   dimmed, until new output replaces it (`window.hold`).
-- **Cumulative (`avg`)** — exact tokens from every finished step of the turn plus
-  the step in flight, over their decode time: what the turn is averaging.
-- **Settled (`avg` / `✓`)** — when a step or turn finishes, its exact figure takes
-  over the cumulative row and stays there.
+- **Cumulative (`avg` / `μ`)** — exact tokens from every finished step of the turn
+  plus the step in flight, over their decode time: what the turn is averaging.
+- **Settled (`avg` / `μ` / `✓`)** — when a step or turn finishes, its exact figure
+  takes over the cumulative row and stays there; a step's own figure with folding
+  off wears `✓`.
 - **Context window** — a pressure-coloured bar, the percentage used, and the
   token count: green while there is room, yellow as it fills, red near the limit.
-- **Cache** — how much of what the model read came from cache, and the cached
-  token count.
+- **Cache (`cache` / `⧉`)** — how much of what the model read came from cache, and
+  the cached token count.
 - **Shells** — how many shell commands the session is running right now; click
   it to toggle the composer, whose Shell tab lists them and opens the host's
   output viewer. The segment hides itself when nothing is executing.
@@ -28,6 +29,9 @@ configurable row.
 - **A ratcheting gauge** — its upper bound is the session's high-water mark, so
   a fast burst sets the scale once and slower output never pulls it back down;
   the bar only reads full when a new high is actually being set.
+- **Labels** — the fixed words are glyphs by default: `↯` for the live reading,
+  `μ` for the average, `⧉` for cache. `usage.labels: "words"` spells `avg` and
+  `cache` back out.
 
 The pieces are `shells`, `context`, `cache`, `meter`, `cost`, and `time`;
 `usage.segments` sets which appear and in what order, and a segment with
@@ -100,6 +104,7 @@ inherit its default.
 | `history.samples` | `500` | Completed figures kept for the statistics |
 | `stats.windowMs` | `60000` | Rolling window for `avg` in the stats dialog |
 | `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
+| `usage.labels` | `"icons"` | How the fixed words read: `icons` draws `↯`, `μ`, `✓`, `⧉`; `words` spells out `avg` and `cache` |
 | `usage.separator` | `" │ "` | Drawn between segments |
 | `usage.contextWidth` | `14` | Context bar width, in cells |
 | `usage.warnAt` | `70` | Context fill turns yellow at this percentage |

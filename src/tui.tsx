@@ -10,7 +10,7 @@
  * `session.step.ended`:
  *
  *   sliding     ↯  what the last few seconds look like, right now
- *   cumulative  avg  the average since the turn began (exact tokens from every
+ *   cumulative  μ  the average since the turn began (exact tokens from every
  *                  finished step of the turn plus the step in flight)
  *
  * The settled figure folds the whole turn (configurable) and the sliding
@@ -42,6 +42,7 @@ import {
   peakTps,
   speedTone,
   tpsStats,
+  USAGE_LABELS,
 } from "./rate.ts"
 import { contextBar, gaugeFor, type CapInput, type Run, type RunTone } from "./render.ts"
 import { cacheShare, compact, contextUsed, duration, money, pressureTone, shellsLabel, type TokenRecord } from "./format.ts"
@@ -97,6 +98,7 @@ export default Plugin.define({
     const loaded = loadConfig(directory, context.options)
     const config: Config = loaded.config
     const opts = rateOptions(config)
+    const labels = USAGE_LABELS[config.labels]
     for (const warning of loaded.warnings) {
       console.warn(`opencode-status-line: ${warning}`)
       context.ui.toast.show({ variant: "warning", title: "opencode-status-line", message: warning, duration: 10_000 })
@@ -358,7 +360,7 @@ export default Plugin.define({
       const share = cacheShare(tokens)
       if (share === undefined) return []
       return [
-        muted("cache "),
+        muted(`${labels.cache} `),
         muted(`${(share * 100).toFixed(1)}%`),
         muted(" — "),
         muted(compact(tokens?.cache?.read ?? 0)),
@@ -429,7 +431,7 @@ export default Plugin.define({
         else if (segment === "cache") part = cacheRuns(window.tokens)
         else if (segment === "meter") {
           const found = meters.get(sessionID)
-          const view = found ? display(found, now, config.readings, opts) : undefined
+          const view = found ? display(found, now, config.readings, opts, labels) : undefined
           if (found && view) part = meterRuns(view, found)
         } else if (segment === "cost") part = costRuns(session)
         else if (segment === "time") part = timeRuns(session, now)
@@ -451,7 +453,7 @@ export default Plugin.define({
       })
       const view = createMemo(() => {
         const found = each()
-        return found ? display(found, Date.now(), config.readings, opts) : undefined
+        return found ? display(found, Date.now(), config.readings, opts, labels) : undefined
       })
       return (
         <box flexDirection="column" paddingLeft={2} paddingRight={2} gap={1}>

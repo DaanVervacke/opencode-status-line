@@ -141,6 +141,14 @@ describe("validation", () => {
     expect(config.contextDanger).toBe(80)
   })
 
+  test("usage.labels picks the glyphs or the words", () => {
+    expect(read({}).config.labels).toBe("icons")
+    expect(read({ [PROJECT]: JSON.stringify({ usage: { labels: "words" } }) }).config.labels).toBe("words")
+    const { config, warnings } = read({ [PROJECT]: JSON.stringify({ usage: { labels: "emoji" } }) })
+    expect(config.labels).toBe(DEFAULT_CONFIG.labels)
+    expect(warnings.some((warning) => warning.includes("usage.labels"))).toBe(true)
+  })
+
   test("warnAt must stay below dangerAt", () => {
     const { config, warnings } = read({
       [PROJECT]: JSON.stringify({ usage: { warnAt: 95, dangerAt: 90 } }),

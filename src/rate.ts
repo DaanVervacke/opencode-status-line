@@ -314,7 +314,7 @@ export function active(meter: Meter, now: number, opts: RateOptions = DEFAULT_RA
 
 export interface Reading {
   key: LiveReading | "final"
-  /** The glyph that says where the figure comes from. */
+  /** The glyph or word that says where the figure comes from. */
   label: string
   tps: number
   /** False for a held or settled figure — the line dims those. */
@@ -327,6 +327,30 @@ export interface Display {
   readings: Reading[]
   /** The figure the colours and the gauge scale to. */
   primary: number
+}
+
+/** How the fixed words of the line read: as glyphs, or spelled out. */
+export type LabelStyle = "icons" | "words"
+
+/**
+ * The fixed words each part of the line wears. `display` reads the first
+ * three; the usage line takes the last for its cache segment. Every entry is
+ * one cell wide in the fonts OpenCode draws with, so no label shifts the line.
+ */
+export interface UsageLabels {
+  /** The instantaneous sliding reading. */
+  sliding: string
+  /** The cumulative average — live, held or settled. */
+  average: string
+  /** A step's own settled figure, with folding off. */
+  settled: string
+  /** The cache segment. */
+  cache: string
+}
+
+export const USAGE_LABELS: Record<LabelStyle, UsageLabels> = {
+  words: { sliding: "↯", average: "avg", settled: "✓", cache: "cache" },
+  icons: { sliding: "↯", average: "μ", settled: "✓", cache: "⧉" },
 }
 
 /**
@@ -342,26 +366,30 @@ export interface Display {
  * stays visible without pretending to be current. With holding off the sliding
  * reading disappears as it used to, and with `readings: []` only the settled
  * figure remains.
+ *
+ * `labels` names the figures (`USAGE_LABELS` holds the icon and word sets);
+ * the counts and the geometry never depend on it.
  */
 export function display(
   meter: Meter,
   now: number,
   readings: readonly LiveReading[] = ["sliding", "cumulative"],
   opts: RateOptions = DEFAULT_RATE,
+  labels: UsageLabels = USAGE_LABELS.icons,
 ): Display | undefined {
   const shown: Reading[] = []
   if (readings.includes("sliding")) {
     const tps = liveRate(meter, now, opts)
-    if (tps !== undefined) shown.push({ key: "sliding", label: "↯", tps, live: true })
+    if (tps !== undefined) shown.push({ key: "sliding", label: labels.sliding, tps, live: true })
     else if (opts.holdSliding && meter.sliding) {
-      shown.push({ key: "sliding", label: "↯", tps: meter.sliding.tps, live: false })
+      shown.push({ key: "sliding", label: labels.sliding, tps: meter.sliding.tps, live: false })
     }
   }
   if (readings.includes("cumulative")) {
     const tps = cumulativeRate(meter, now, opts)
-    if (tps !== undefined) shown.push({ key: "cumulative", label: "avg", tps, live: true })
+    if (tps !== undefined) shown.push({ key: "cumulative", label: labels.average, tps, live: true })
     else if (meter.final?.kind === "turn") {
-      shown.push({ key: "cumulative", label: "avg", tps: meter.final.tps, live: false })
+      shown.push({ key: "cumulative", label: labels.average, tps: meter.final.tps, live: false })
     }
   }
 
@@ -373,7 +401,7 @@ export function display(
   if (!anyLive && meter.final && !coveredFinal) {
     shown.push({
       key: "final",
-      label: meter.final.kind === "turn" ? "avg" : "✓",
+      label: meter.final.kind === "turn" ? labels.average : labels.settled,
       tps: meter.final.tps,
       live: false,
     })

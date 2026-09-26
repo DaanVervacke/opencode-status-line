@@ -16,6 +16,7 @@ import {
   speedTone,
   tpsStats,
   DEFAULT_RATE,
+  USAGE_LABELS,
   type Meter,
   type RateOptions,
 } from "../src/rate.ts"
@@ -223,7 +224,25 @@ describe("display", () => {
     expect(view?.readings.map((reading) => reading.key)).toEqual(["sliding", "cumulative"])
     expect(view?.readings.map((reading) => reading.live)).toEqual([true, true])
     expect(view?.readings[0]!.label).toBe("↯")
-    expect(view?.readings[1]!.label).toBe("avg")
+    expect(view?.readings[1]!.label).toBe("μ")
+  })
+
+  test("labels follow the configured style", () => {
+    const meter = createMeter()
+    beginTurn(meter, T0)
+    beginStep(meter, "msg", T0, T0)
+    const now = stream(meter, T0, 1_000, 400)
+
+    const icons = display(meter, now, ["sliding", "cumulative"], OPTS, USAGE_LABELS.icons)
+    expect(icons?.readings.map((reading) => reading.label)).toEqual(["↯", "μ"])
+
+    const words = display(meter, now, ["sliding", "cumulative"], OPTS, USAGE_LABELS.words)
+    expect(words?.readings.map((reading) => reading.label)).toEqual(["↯", "avg"])
+  })
+
+  test("the label sets stay unchanged — every glyph one cell wide", () => {
+    expect(USAGE_LABELS.icons).toEqual({ sliding: "↯", average: "μ", settled: "✓", cache: "⧉" })
+    expect(USAGE_LABELS.words).toEqual({ sliding: "↯", average: "avg", settled: "✓", cache: "cache" })
   })
 
   test("respects a single-reading configuration", () => {
@@ -250,8 +269,18 @@ describe("display", () => {
     expect(settled?.readings.map((reading) => reading.live)).toEqual([false, false])
     expect(settled?.readings[0]!.label).toBe("↯")
     expect(settled?.readings[0]!.tps).toBeCloseTo(held, 5)
-    expect(settled?.readings[1]!.label).toBe("avg")
+    expect(settled?.readings[1]!.label).toBe("μ")
     expect(settled?.readings[1]!.tps).toBeCloseTo(100, 5)
+  })
+
+  test("a folded-off step keeps its check mark in both styles", () => {
+    const opts: RateOptions = { ...DEFAULT_RATE, turnFold: false }
+    const meter = createMeter(opts)
+    beginStep(meter, "msg", T0, T0)
+    stream(meter, T0, 1_000, 400, opts)
+    endStep(meter, "msg", 100, T0 + 1_100, T0 + 1_100, opts)
+    const settled = display(meter, T0 + 1_100 + WINDOW + 100, [], opts, USAGE_LABELS.icons)
+    expect(settled?.readings.map((reading) => reading.label)).toEqual(["✓"])
   })
 
   test("holding off leaves only the settled figure", () => {
