@@ -184,8 +184,8 @@ characters):
 
 ## 4. Move the line around
 
-`surface` picks which slot of the OpenCode UI the line lives in. The default is
-`app`, the window's bottom row.
+`surface` picks which slot of the OpenCode UI the line lives in — one slot, or
+several at once. The default is `app`, the window's bottom row.
 
 | Value | Where it goes |
 | --- | --- |
@@ -193,7 +193,7 @@ characters):
 | `"prompt.footer"` | On the prompt footer row, to the right of OpenCode's usage text |
 | `"prompt.footer.status"` | Inside the footer's status area, to the left of that text |
 | `"session.composer.top"` | The row just above the message composer |
-| `"home.footer.status"` | The footer of the home screen |
+| `"home.footer.status"` | The footer of the home screen — the line hides there, since no conversation is open |
 | `"sidebar.content"` | The sidebar body — segments stack one per row |
 | `"sidebar.footer"` | The sidebar footer — segments stack one per row |
 
@@ -203,6 +203,21 @@ characters):
 }
 ```
 
+To show the line in more than one place at once, give `surface` a list:
+
+```json
+{
+  "surface": ["app", "sidebar.footer"]
+}
+```
+
+Every placement draws the same segments, under that placement's own rules: a
+sidebar stacks them one per row, a one-line surface joins and wraps them, the
+footer surfaces share their row with OpenCode's text, and each surface's
+padding (including `app`'s indent and clear rows) is read per placement. A name
+repeated in the list is drawn once; an unknown name is ignored with a warning,
+and a list left with no known name keeps the previous placements.
+
 Notes:
 
 - The two sidebar surfaces are narrow, so they stack segments vertically and
@@ -211,6 +226,8 @@ Notes:
   to further rows when space runs out.
 - The footer surfaces share their row with OpenCode's own text, so they have
   less room than `app`.
+- The home screen has no conversation open, so the line stays hidden there —
+  and on any other screen without a session — whatever surfaces are configured.
 
 ### Padding
 
@@ -507,7 +524,7 @@ Every key, its default, and the values it accepts. All keys are optional.
 
 | Key | Default | Accepts |
 | --- | --- | --- |
-| `surface` | `"app"` | `"prompt.footer.status"`, `"prompt.footer"`, `"app"`, `"sidebar.content"`, `"sidebar.footer"`, `"session.composer.top"`, `"home.footer.status"` |
+| `surface` | `["app"]` | A slot name, or an array of names: `"prompt.footer.status"`, `"prompt.footer"`, `"app"`, `"sidebar.content"`, `"sidebar.footer"`, `"session.composer.top"`, `"home.footer.status"` |
 | `padding.<surface>.left` | `2` for `app`, else `0` | whole number 0–20 |
 | `padding.<surface>.right` | `2` for `app`, else `0` | whole number 0–20 |
 | `padding.<surface>.top` | `0` | whole number 0–20 |
@@ -653,6 +670,14 @@ Copy any block into your config file as a starting point.
 {
   "surface": "sidebar.content",
   "usage": { "segments": ["context", "cache", "meter", "cost", "diff"] }
+}
+```
+
+**Put it in two places at once** — the bottom row and the prompt footer:
+
+```json
+{
+  "surface": ["app", "prompt.footer"]
 }
 ```
 

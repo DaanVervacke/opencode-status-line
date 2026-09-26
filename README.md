@@ -25,10 +25,10 @@ changes in one configurable row.
 - `/opencode-status-line` (alias `/tps`, also in the command palette) opens a
   dialog with the numbers behind the meter.
 
-The line fits wherever you put it: it wraps whole segments onto further rows
-when the window is narrow, stacks them one per row in a sidebar, and dresses
-itself in any of the bundled palettes — Catppuccin, Dracula, Gruvbox, Nord,
-Rosé Pine, Tokyo Night, or the flat `grey` and `white`.
+Put the line wherever you like — one slot or several at once: it wraps whole
+segments onto further rows when the window is narrow, stacks them one per row
+in a sidebar, and dresses itself in any of the bundled palettes — Catppuccin,
+Dracula, Gruvbox, Nord, Rosé Pine, Tokyo Night, or the flat `grey` and `white`.
 
 ## Install
 

@@ -105,6 +105,19 @@ Keep new logic in the pure modules so it can be tested without a terminal.
 
 ### Surfaces and width
 
+- `config.surface` is a list of placements: `setup` registers one slot renderer
+  per entry (`renderFor(surface)`), each closing over its own
+  `stackFor`/`resolvedPadding`/`sharesHostRow` facts and owning its own
+  measured-width signal, while the shared `version` signal keeps every
+  placement repainting together. The stats command's `app` layer is registered
+  once, independent of the list.
+- The line renders only when a session is on screen: the renderer resolves its
+  session from the slot input or the route, and a non-session route (`home`, a
+  plugin page) yields an empty row. `app` and `home.footer.status` are mounted
+  by the host on those routes, so the line stands down there by choice — it
+  describes a conversation, and none is open. Do not "fix" this with a
+  most-recent-session fallback: it was tried once, looked out of place on home,
+  and was reverted.
 - A `sidebar.*` surface is a narrow column: `stackFor` stacks the segments one
   per row and each row is cut to `columnWidth(context.renderer.width)` with an
   ellipsis. `context.renderer` is the shared OpenTUI renderer, so read its width

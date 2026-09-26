@@ -1,8 +1,8 @@
 /**
  * opencode-status-line — a live usage-and-speed status line for OpenCode's CLI
  * prompt footer: context window, cache, streaming speed, cost, elapsed time
- * and uncommitted changes in one row, configurable per segment
- * (`usage.segments`).
+ * and uncommitted changes in one row, drawn in one UI slot or several at once
+ * (`surface`) and configurable per segment (`usage.segments`).
  *
  * The speed segment carries two live readings. OpenCode only learns exact token
  * counts when a step finishes, so the live figures are estimated from streamed
@@ -32,7 +32,7 @@
  */
 import { Plugin } from "@opencode/plugin/tui"
 import { For, Show, createMemo, createSignal } from "solid-js"
-import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, sharesHostRow, stackFor, type Config } from "./config.ts"
+import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, sharesHostRow, stackFor, type Config, type Surface } from "./config.ts"
 import { diffDue, diffKey, diffParts, diffTotals, type DiffReading, type DiffStat, type StatusFile } from "./diff.ts"
 import { HOST_PALETTE, inkColor, resolvePalette } from "./palette.ts"
 import type { Display, Meter } from "./rate.ts"
@@ -129,8 +129,6 @@ export default Plugin.define({
         ? undefined
         : resolvePalette(config.palette, context.themeMode, config.toneOverrides)
     const contextWidth = contextBarWidth(config)
-    const stack = stackFor(config.surface)
-    const padding = resolvedPadding(config)
     for (const warning of loaded.warnings) {
       console.warn(`opencode-status-line: ${warning}`)
       context.ui.toast.show({ variant: "warning", title: "opencode-status-line", message: warning, duration: 10_000 })
@@ -654,7 +652,17 @@ export default Plugin.define({
       after: Run[]
     }
 
-    const render = (input: { sessionID?: string }) => {
+    /**
+     * A renderer for one placement. Each configured surface gets its own
+     * instance: it closes over that surface's layout facts (stack direction,
+     * padding, row sharing) and its measured width is its own — two
+     * placements are two boxes, each dealt its own width by the host — while
+     * all of them repaint from the one shared `version` signal.
+     */
+    const renderFor = (surface: Surface) => (input: { sessionID?: string }) => {
+      const stack = stackFor(surface)
+      const padding = resolvedPadding(config, surface)
+      const sharesRow = sharesHostRow(surface)
       let warned = false
       /**
        * The width the host actually dealt this box, reported by layout. A
@@ -688,7 +696,9 @@ export default Plugin.define({
           // even while nothing is streaming.
           version()
           // Slots such as `prompt.footer` carry no session in their input; the
-          // route knows which conversation is on screen.
+          // route knows which conversation is on screen. Without one — the
+          // home screen, a plugin page — the line stays hidden rather than
+          // describing a conversation that is not open.
           const sessionID = input?.sessionID ?? currentSession()
           if (!sessionID) return { lines: [], basis: 0 }
           const rows = usageRows(sessionID, Date.now())
@@ -755,7 +765,7 @@ export default Plugin.define({
             // unwrapped width, or a narrow layout would pin the box narrow
             // for good. `app` and the composer top stretch to the window and
             // need no basis.
-            flexBasis={sharesHostRow(config.surface) ? view().basis : undefined}
+            flexBasis={sharesRow ? view().basis : undefined}
             paddingLeft={padding.left}
             paddingRight={padding.right}
             paddingTop={padding.top}
@@ -804,7 +814,13 @@ export default Plugin.define({
     }
 
     // The placement key is the verb (`append`); its value is the slot path.
-    context.ui.slot({ append: config.surface, render })
+    // One registration per configured placement: `config.surface` is a list,
+    // and each surface gets its own renderer because the layout facts differ
+    // (a sidebar stacks, a footer shares its row, `app` carries its indent) —
+    // all of them repainting from the one shared `version` signal.
+    for (const surface of config.surface) {
+      context.ui.slot({ append: surface, render: renderFor(surface) })
+    }
 
     return () => {
       for (const stop of stops) stop()

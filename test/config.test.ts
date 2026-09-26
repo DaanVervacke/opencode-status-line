@@ -159,15 +159,56 @@ describe("validation", () => {
     expect(config.holdSliding).toBe(false)
   })
 
-  test("surface must be a known slot", () => {
-    const { config, warnings } = read({ [PROJECT]: JSON.stringify({ surface: "nowhere" }) })
-    expect(config.surface).toBe(DEFAULT_CONFIG.surface)
-    expect(warnings.length).toBe(1)
+  test("surface takes one slot or several at once", () => {
+    expect(DEFAULT_CONFIG.surface).toEqual(["app"])
+    expect(read({ [PROJECT]: JSON.stringify({ surface: "app" }) }).config.surface).toEqual(["app"])
+    expect(read({ [PROJECT]: JSON.stringify({ surface: "sidebar.content" }) }).config.surface).toEqual([
+      "sidebar.content",
+    ])
+    expect(
+      read({ [PROJECT]: JSON.stringify({ surface: ["app", "prompt.footer", "sidebar.content"] }) }).config.surface,
+    ).toEqual(["app", "prompt.footer", "sidebar.content"])
+    // A later source replaces the list whole, like every other key.
+    const both = read({
+      [GLOBAL]: JSON.stringify({ surface: "app" }),
+      [PROJECT]: JSON.stringify({ surface: ["sidebar.footer", "prompt.footer"] }),
+    })
+    expect(both.config.surface).toEqual(["sidebar.footer", "prompt.footer"])
   })
 
-  test("app joins the slots, and sidebar surfaces stack their segments", () => {
-    expect(read({ [PROJECT]: JSON.stringify({ surface: "app" }) }).config.surface).toBe("app")
-    expect(read({ [PROJECT]: JSON.stringify({ surface: "sidebar.content" }) }).config.surface).toBe("sidebar.content")
+  test("surface lists keep their order and drop duplicates and unknown slots", () => {
+    const { config, warnings } = read({
+      [PROJECT]: JSON.stringify({ surface: ["sidebar.footer", "nowhere", "app", "sidebar.footer"] }),
+    })
+    expect(config.surface).toEqual(["sidebar.footer", "app"])
+    expect(warnings.length).toBe(1)
+    expect(warnings[0]).toContain("nowhere")
+  })
+
+  test("a surface list with no known slot warns and keeps the previous placements", () => {
+    const { config, warnings } = read({
+      [GLOBAL]: JSON.stringify({ surface: ["app", "sidebar.footer"] }),
+      [PROJECT]: JSON.stringify({ surface: [] }),
+    })
+    expect(config.surface).toEqual(["app", "sidebar.footer"])
+    expect(warnings.some((warning) => warning.includes("no known slot"))).toBe(true)
+    const allBad = read({ [PROJECT]: JSON.stringify({ surface: ["nowhere", 7] }) })
+    expect(allBad.config.surface).toEqual(DEFAULT_CONFIG.surface)
+    expect(allBad.warnings.some((warning) => warning.includes("nowhere"))).toBe(true)
+    expect(allBad.warnings.some((warning) => warning.includes("no known slot"))).toBe(true)
+  })
+
+  test("a surface that is not a known name or list warns and keeps the previous placements", () => {
+    const scalar = read({ [PROJECT]: JSON.stringify({ surface: "nowhere" }) })
+    expect(scalar.config.surface).toEqual(DEFAULT_CONFIG.surface)
+    expect(scalar.warnings.length).toBe(1)
+    expect(scalar.warnings[0]).toContain("surface must be one of")
+    const wrongType = read({ [PROJECT]: JSON.stringify({ surface: 3 }) })
+    expect(wrongType.config.surface).toEqual(DEFAULT_CONFIG.surface)
+    expect(wrongType.warnings.length).toBe(1)
+  })
+
+  test("sidebar surfaces stack their segments", () => {
     expect(stackFor("sidebar.content")).toBe("column")
     expect(stackFor("sidebar.footer")).toBe("column")
     expect(stackFor("app")).toBe("row")
@@ -193,22 +234,22 @@ describe("validation", () => {
     const app = read({
       [PROJECT]: JSON.stringify({ surface: "app", padding: { app: { left: 0, bottom: 3 } } }),
     }).config
-    expect(resolvedPadding(app)).toEqual({ left: 0, right: 2, top: 0, bottom: 3 })
+    expect(resolvedPadding(app, "app")).toEqual({ left: 0, right: 2, top: 0, bottom: 3 })
     const footer = read({
       [PROJECT]: JSON.stringify({ surface: "prompt.footer", padding: { "prompt.footer": { left: 1 } } }),
     }).config
-    expect(resolvedPadding(footer)).toEqual({ left: 1, right: 0, top: 0, bottom: 0 })
+    expect(resolvedPadding(footer, "prompt.footer")).toEqual({ left: 1, right: 0, top: 0, bottom: 0 })
   })
 
-  test("a placement move swaps the padding along with the surface", () => {
+  test("each placement resolves its own padding when the line is in several slots", () => {
     const padding = {
       app: { bottom: 3 },
       "prompt.footer": { left: 1, top: 1 },
     }
-    const app = read({ [PROJECT]: JSON.stringify({ surface: "app", padding }) }).config
-    expect(resolvedPadding(app)).toEqual({ left: 2, right: 2, top: 0, bottom: 3 })
-    const footer = read({ [PROJECT]: JSON.stringify({ surface: "prompt.footer", padding }) }).config
-    expect(resolvedPadding(footer)).toEqual({ left: 1, right: 0, top: 1, bottom: 0 })
+    const config = read({ [PROJECT]: JSON.stringify({ surface: ["app", "prompt.footer"], padding }) }).config
+    expect(config.surface).toEqual(["app", "prompt.footer"])
+    expect(resolvedPadding(config, "app")).toEqual({ left: 2, right: 2, top: 0, bottom: 3 })
+    expect(resolvedPadding(config, "prompt.footer")).toEqual({ left: 1, right: 0, top: 1, bottom: 0 })
   })
 
   test("padding blocks merge across sources and never touch the defaults", () => {
@@ -232,7 +273,7 @@ describe("validation", () => {
     })
     expect(config.padding).toEqual({})
     // The default surface is `app`, so its own padding stands.
-    expect(resolvedPadding(config)).toEqual(paddingFor(config.surface))
+    expect(resolvedPadding(config, "app")).toEqual(paddingFor("app"))
     expect(warnings.filter((warning) => warning.includes("padding.")).length).toBe(6)
   })
 

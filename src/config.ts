@@ -26,7 +26,10 @@ import {
 import { DEFAULT_RATE, type LabelStyle, type LiveReading, type RateOptions } from "./rate.ts"
 import type { CapStyle } from "./render.ts"
 
-/** The slot paths the line may claim. */
+/**
+ * The slot paths the line may claim. `surface` takes one of these or an array
+ * of them, so the same line can live in several places at once.
+ */
 export const SURFACES = [
   "prompt.footer.status",
   "prompt.footer",
@@ -97,7 +100,8 @@ export type CapMode = CapStyle
 export type BarWidth = number | "gauge"
 
 export interface Config {
-  surface: Surface
+  /** The slots the line claims, in config order; one or several at once. */
+  surface: Surface[]
   /** Which live readings the line shows, in order. Empty shows only settled figures. */
   readings: LiveReading[]
   windowMs: number
@@ -144,7 +148,7 @@ export interface Config {
 }
 
 export const DEFAULT_CONFIG: Config = {
-  surface: "app",
+  surface: ["app"],
   readings: ["sliding", "cumulative"],
   windowMs: DEFAULT_RATE.windowMs,
   minSpanMs: DEFAULT_RATE.minSpanMs,
@@ -182,9 +186,14 @@ export function contextBarWidth(config: Config): number {
   return config.contextWidth === "gauge" ? config.gaugeWidth : config.contextWidth
 }
 
-/** The room around the line: the active surface's default with its own overrides. */
-export function resolvedPadding(config: Config): Padding {
-  return { ...paddingFor(config.surface), ...config.padding[config.surface] }
+/**
+ * The room around the line in one placement: that surface's default with its
+ * own overrides. Each placement in `config.surface` resolves its own padding,
+ * so a multi-surface config never shares one placement's overrides with
+ * another.
+ */
+export function resolvedPadding(config: Config, surface: Surface): Padding {
+  return { ...paddingFor(surface), ...config.padding[surface] }
 }
 
 /** The maths half of the config, for `rate.ts`. */
@@ -320,9 +329,23 @@ function apply(draft: Draft, where: string, raw: unknown): void {
   if ("surface" in root) {
     const value = root.surface
     if (typeof value === "string" && (SURFACES as readonly string[]).includes(value)) {
-      config.surface = value as Surface
+      config.surface = [value as Surface]
+    } else if (Array.isArray(value)) {
+      // A list of placements: keep the valid ones in order, warn about the
+      // rest. An empty (or all-invalid) list leaves the previous placements —
+      // a config mistake must not silently remove the line from the UI.
+      const wanted: Surface[] = []
+      for (const entry of value) {
+        if (typeof entry === "string" && (SURFACES as readonly string[]).includes(entry)) {
+          if (!wanted.includes(entry as Surface)) wanted.push(entry as Surface)
+        } else {
+          draft.warnings.push(`${where}: surface has unknown slot "${String(entry)}" — ignored`)
+        }
+      }
+      if (wanted.length > 0) config.surface = wanted
+      else draft.warnings.push(`${where}: surface named no known slot — using ${config.surface.join(", ")}`)
     } else {
-      draft.warnings.push(`${where}: surface must be one of ${SURFACES.join(", ")} — using ${config.surface}`)
+      draft.warnings.push(`${where}: surface must be one of ${SURFACES.join(", ")} — using ${config.surface.join(", ")}`)
     }
   }
 
