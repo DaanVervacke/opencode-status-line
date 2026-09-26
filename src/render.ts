@@ -128,8 +128,11 @@ export interface CapInput {
 /** Fractions of a cell, indexed by eighths left over. */
 const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"]
 const TRACK = "·"
-/** The light vertical edges both bars wear, so they read as one family. */
-const EDGE_START = "▕"
+/**
+ * The light edge the bar ends on, so the track stops softly rather than
+ * squarely. There is no matching edge at the start: `▕` inks the right of its
+ * cell, so its left reads as an empty space before the bar.
+ */
 const EDGE_END = "▏"
 
 /** Fill and remaining track for a ratio, at eighth-cell resolution. */
@@ -144,13 +147,14 @@ function cells(ratio: number, width: number): { fill: string; track: string } {
 }
 
 /**
- * One bar, assembled: `▕████▋···▏`. Both bars are this same drawing at the
- * same width, so they match in cells, edges, columns and level count; only
- * the fill's tone and what the ratio means differ.
+ * One bar, assembled: `████▋···▏`. Both bars are this same drawing at the
+ * same width, so they match in cells, trailing edge, columns and level count;
+ * only the fill's tone and what the ratio means differ. The bar starts on its
+ * first fill (or track) cell — it has no leading edge.
  */
 function barRuns(ratio: number, width: number, fillTone: RunTone): Run[] {
   const { fill, track } = cells(ratio, width)
-  const runs: Run[] = [{ text: EDGE_START, tone: "muted" }]
+  const runs: Run[] = []
   if (fill.length > 0) runs.push({ text: fill, tone: fillTone })
   if (track.length > 0) runs.push({ text: track, tone: "muted" })
   runs.push({ text: EDGE_END, tone: "muted" })
@@ -158,7 +162,7 @@ function barRuns(ratio: number, width: number, fillTone: RunTone): Run[] {
 }
 
 /**
- * Live eighth-cell gauge: `▕████▋···▏`. Fill is the speed tone; the track is
+ * Live eighth-cell gauge: `████▋···▏`. Fill is the speed tone; the track is
  * muted. Scale is the session's high-water mark, never below `floor`, so the
  * bar does not rescale under every tick.
  */
@@ -176,7 +180,7 @@ export function gauge(
 }
 
 /**
- * Context-window bar: `▕████████······▏`, the gauge's drawing with the
+ * Context-window bar: `████████······▏`, the gauge's drawing with the
  * pressure tone the caller chose — green while there is room, red near the
  * limit.
  */

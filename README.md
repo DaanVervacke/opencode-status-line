@@ -5,7 +5,7 @@ window, cache, streaming speed, cost and elapsed time in one configurable row,
 wrapping to more rows when the window is narrow.
 
 ```
-▕██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
+██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
 ```
 
 - **Sliding (`↯`)** — streamed characters over the last few seconds: what is
@@ -18,8 +18,8 @@ wrapping to more rows when the window is narrow.
   off wears `✓`.
 - **Context window** — a pressure-coloured bar, the percentage used, and the
   token count: green while there is room, yellow as it fills, red near the limit.
-  It wears the speed gauge's drawing — same edges, cells, columns and levels —
-  unless `usage.contextWidth` picks its own cell count.
+  It wears the speed gauge's drawing — same cells, same trailing edge, same
+  levels — unless `usage.contextWidth` picks its own cell count.
 - **Cache (`cache` / `⧉`)** — how much of what the model read came from cache, and
   the cached token count.
 - **Shells** — how many shell commands the session is running right now; click
