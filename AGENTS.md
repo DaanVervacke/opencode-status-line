@@ -47,6 +47,11 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   untracked, so a plain array is evaluated once and the line never repaints.
 - Route every event handler through `safely`; an uncaught throw inside one can
   kill the plugin generation, and a half-saved file has done exactly that.
+- Saving any `src/` file the entry imports hot-reloads the plugin: the module is
+  re-imported and module scope comes back empty, which used to blank the meter
+  segment mid-turn on every save. State that must outlive a generation lives on
+  `globalThis` (`sharedMeters` in `src/tui.tsx`). Touching `README.md` or
+  `test/` does not reload; the `src/` imports do.
 - The session record (`data.session.get`) holds token totals cumulative across
   all turns. Context and cache must read the newest assistant message's own
   `tokens` (`windowInfo` in `src/tui.tsx`), or every prompt ever sent is counted.

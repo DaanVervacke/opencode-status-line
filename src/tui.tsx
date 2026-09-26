@@ -49,6 +49,26 @@ import { cacheShare, compact, contextUsed, duration, money, pressureTone, shells
 /** How often the line redraws while something is on screen. */
 const TICK_MS = 250
 
+/**
+ * The per-session meters live on `globalThis`, not in `setup`. OpenCode
+ * hot-reloads the plugin whenever a source file it imports is saved: this
+ * module is re-imported and `setup` runs again with every module-scope value
+ * reset. The process outlives the generation, so the meters ride on it —
+ * readings, high-water marks, history and calibration all survive a save, and
+ * the line keeps painting the last figures instead of going dark mid-turn
+ * while the new generation finds its feet.
+ */
+const METERS = "__opencodeStatusLineMeters"
+
+const sharedMeters = (): Map<string, Meter> => {
+  const shared = globalThis as Record<string, unknown>
+  const existing = shared[METERS]
+  if (existing instanceof Map) return existing as Map<string, Meter>
+  const meters = new Map<string, Meter>()
+  shared[METERS] = meters
+  return meters
+}
+
 /** The bits of the event payloads this plugin reads. */
 interface Tokens {
   output?: number
@@ -82,7 +102,7 @@ export default Plugin.define({
       context.ui.toast.show({ variant: "warning", title: "opencode-status-line", message: warning, duration: 10_000 })
     }
 
-    const meters = new Map<string, Meter>()
+    const meters = sharedMeters()
     const [version, setVersion] = createSignal(0, { equals: false })
     let timer: ReturnType<typeof setInterval> | undefined
     /** Keeps the elapsed timer and held figures repainting while nothing streams. */
