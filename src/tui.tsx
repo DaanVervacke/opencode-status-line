@@ -439,10 +439,9 @@ export default Plugin.define({
     }
 
     /**
-     * Toggle the composer through the host
-     * command, whose Shell tab lists running shells and opens the host's own
-     * output viewer. Dispatch the command rather than imitating the popup, so
-     * the UI is the host's own.
+     * Toggle the composer through the host command, whose Shell tab lists
+     * running shells and opens the host's own output viewer. Dispatch the
+     * command rather than imitating the popup, so the UI is the host's own.
      */
     const openShells = () => context.keymap.dispatch("session.child.first")
 

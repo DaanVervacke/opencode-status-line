@@ -83,8 +83,8 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   the first token, so TTFT is not charged.
 - Shell counts come from the host's shell registry (`context.data.shell`),
   which holds a shell only while it executes; background shells live in a
-  separate registry and never appear there. Match
-  `status === "running"` and `metadata.sessionID`.
+  separate registry and never appear there. Match `status === "running"` and
+  `metadata.sessionID`.
 - `session.idle` also closes a turn as a late belt; `endTurn` is idempotent, so
   double-closing is safe.
 - A `sidebar.*` surface is a narrow column: `stackFor` stacks the segments one
