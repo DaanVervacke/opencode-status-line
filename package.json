@@ -1,7 +1,7 @@
 {
   "name": "opencode-status-line",
   "version": "0.1.0",
-  "description": "A live status line for OpenCode v2's terminal UI — context window, cache, streaming speed, cost and elapsed time in one configurable row.",
+  "description": "A live status line for OpenCode v2's terminal UI — context window, cache, streaming speed, cost, elapsed time and uncommitted changes in one configurable row.",
   "type": "module",
   "license": "MIT",
   "author": "Rashid Razak <bib.nexus@gmail.com>",

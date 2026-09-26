@@ -1,8 +1,8 @@
 # opencode-status-line
 
 OpenCode v2 TUI plugin: a prompt-footer status line (context, cache, streaming
-speed, cost, elapsed time). `README.md` is the user-facing reference for
-behaviour and every config key.
+speed, cost, elapsed time, uncommitted changes). `README.md` is the user-facing
+reference for behaviour and every config key.
 
 ## What is unusual here
 
@@ -32,8 +32,9 @@ behaviour and every config key.
 | `src/rate.ts` | Speed maths (sliding window, turn fold, calibration, history) and the `USAGE_LABELS` icon/word sets. Pure. |
 | `src/render.ts` | Gauge and context-bar geometry, run cutting and wrapping for narrow widths. Pure. |
 | `src/format.ts` | Token / money / duration formatting. Pure. |
+| `src/diff.ts` | Uncommitted-change totals from the host's VCS status, and the diff segment's cache policy. Pure. |
 | `src/config.ts` | JSON config loader; pure except an injectable `read`. |
-| `test/*.test.ts` | One per pure module; `bun test` runs all four. |
+| `test/*.test.ts` | One per pure module; `bun test` runs all five. |
 | `tui.tsx` | Root shim re-exporting `src/tui.tsx`; see above. |
 
 Keep new logic in the pure modules so it can be tested without a terminal.
@@ -85,6 +86,15 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   which holds a shell only while it executes; background shells live in a
   separate registry and never appear there. Match `status === "running"` and
   `metadata.sessionID`.
+- The diff counter reads the host's VCS registry too (`context.client.vcs.status`,
+  the working tree against the location's base, untracked files included — its
+  route describes itself as "uncommitted working-copy changes"), rather than
+  spawning `git` from the TUI. The host answers each request from scratch, so
+  the reading is cached per location and re-asked at `diff.refreshMs`, and a
+  closing turn marks it stale so the next paint re-asks. A location that cannot
+  answer — no repository, no provider — caches as a clean tree; the host caps
+  its untracked stat read at 4 KiB, so a large new file can land at zero lines,
+  and that is the host's figure, not the plugin's to invent around.
 - `session.idle` also closes a turn as a late belt; `endTurn` is idempotent, so
   double-closing is safe.
 - A `sidebar.*` surface is a narrow column: `stackFor` stacks the segments one

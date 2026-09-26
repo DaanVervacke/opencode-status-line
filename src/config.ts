@@ -80,7 +80,7 @@ export function paddingFor(surface: Surface): Padding {
 export type SurfacePadding = Partial<Record<Surface, Partial<Padding>>>
 
 /** The pieces the usage line can draw, in whatever order the config asks. */
-export const USAGE_SEGMENTS = ["shells", "context", "cache", "meter", "cost", "time"] as const
+export const USAGE_SEGMENTS = ["shells", "context", "cache", "meter", "cost", "time", "diff"] as const
 export type UsageSegment = (typeof USAGE_SEGMENTS)[number]
 
 export type CapMode = CapStyle
@@ -117,6 +117,8 @@ export interface Config {
   labels: LabelStyle
   /** Drawn between segments of the usage line. */
   usageSeparator: string
+  /** How often the diff segment re-asks the host's VCS registry, in ms. */
+  diffRefreshMs: number
   /** Cells the context bar draws; `"gauge"` matches `cap.gaugeWidth`. */
   contextWidth: BarWidth
   /** Context fill turns yellow at this percentage. */
@@ -151,6 +153,7 @@ export const DEFAULT_CONFIG: Config = {
   usageSegments: [...USAGE_SEGMENTS],
   labels: "icons",
   usageSeparator: " │ ",
+  diffRefreshMs: 5_000,
   contextWidth: "gauge",
   contextWarn: 70,
   contextDanger: 90,
@@ -281,6 +284,7 @@ const KNOWN_TOP = new Set([
   "history",
   "stats",
   "usage",
+  "diff",
 ])
 const READINGS: readonly LiveReading[] = ["sliding", "cumulative"]
 
@@ -445,6 +449,11 @@ function apply(draft: Draft, where: string, raw: unknown): void {
     }
     num(draft, where, "usage.warnAt", usage.warnAt, 0, 100, (value) => (config.contextWarn = value))
     num(draft, where, "usage.dangerAt", usage.dangerAt, 0, 100, (value) => (config.contextDanger = value))
+  }
+
+  const diff = group(draft, where, root, "diff")
+  if (diff) {
+    num(draft, where, "diff.refreshMs", diff.refreshMs, 500, 600_000, (value) => (config.diffRefreshMs = value))
   }
 }
 

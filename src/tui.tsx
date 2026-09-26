@@ -1,7 +1,8 @@
 /**
  * opencode-status-line — a live usage-and-speed status line for OpenCode's CLI
- * prompt footer: context window, cache, streaming speed, cost and elapsed time
- * in one row, configurable per segment (`usage.segments`).
+ * prompt footer: context window, cache, streaming speed, cost, elapsed time
+ * and uncommitted changes in one row, configurable per segment
+ * (`usage.segments`).
  *
  * The speed segment carries two live readings. OpenCode only learns exact token
  * counts when a step finishes, so the live figures are estimated from streamed
@@ -32,6 +33,7 @@
 import { Plugin } from "@opencode/plugin/tui"
 import { For, Show, createMemo, createSignal } from "solid-js"
 import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, sharesHostRow, stackFor, type Config } from "./config.ts"
+import { diffDue, diffKey, diffParts, diffTotals, type DiffReading, type DiffStat, type StatusFile } from "./diff.ts"
 import type { Display, Meter } from "./rate.ts"
 import {
   active,
@@ -104,8 +106,8 @@ interface StoredMessage {
   tokens?: { output?: number; reasoning?: number }
 }
 
-/** Where a session's shells live. */
-type ShellLocation = { directory?: string | null }
+/** Where a session's working tree lives — the shells it runs, the VCS it is under. */
+type SessionLocation = { directory?: string | null; workspaceID?: string }
 
 export default Plugin.define({
   id: "local.opencode-status-line",
@@ -268,6 +270,10 @@ export default Plugin.define({
       const sessionID = sessionOf(event)
       if (!sessionID) return
       endTurn(meter(sessionID), Date.now(), opts)
+      // The turn has just written to the working tree: mark the diff reading
+      // stale, so the next paint re-asks rather than waiting out the interval.
+      const reading = diffs.get(diffKey(sessionLocation(sessionID)))
+      if (reading) reading.at = 0
       bump()
     }
 
@@ -422,8 +428,8 @@ export default Plugin.define({
       ]
     }
 
-    /** The location a session's shells live at; the session record knows best. */
-    const shellLocation = (sessionID: string): ShellLocation =>
+    /** The location a session's shells and working tree live at; the session record knows best. */
+    const sessionLocation = (sessionID: string): SessionLocation =>
       sessionUsage(sessionID)?.location ?? context.location ?? context.data.location.default()
 
     /**
@@ -432,7 +438,7 @@ export default Plugin.define({
      * so this reads as live activity.
      */
     const shellRuns = (sessionID: string): Run[] => {
-      const location = shellLocation(sessionID)
+      const location = sessionLocation(sessionID)
       const running = (context.data.shell.list(location) ?? [])
         .filter((shell) => shell.status === "running" && shell.metadata?.sessionID === sessionID)
       return running.length > 0 ? [{ ...muted(shellsLabel(running.length)), onClick: openShells }] : []
@@ -444,6 +450,54 @@ export default Plugin.define({
      * command rather than imitating the popup, so the UI is the host's own.
      */
     const openShells = () => context.keymap.dispatch("session.child.first")
+
+    /**
+     * The diff segment's readings, keyed by location. The host answers each
+     * request from scratch — a working-copy status listing with a diff behind
+     * it — so the counter is cached and re-asked on an interval rather than on
+     * every repaint, and a closing turn marks the reading stale so the next
+     * paint reflects what the turn just wrote.
+     */
+    const diffs = new Map<string, DiffReading>()
+    const diffing = new Set<string>()
+
+    const refreshDiff = (key: string, location: SessionLocation) => {
+      if (diffing.has(key)) return
+      const vcs = context.client?.vcs as
+        | { status?: (input: { location?: SessionLocation }) => Promise<{ data?: StatusFile[] } | undefined> }
+        | undefined
+      if (typeof vcs?.status !== "function") return
+      diffing.add(key)
+      try {
+        void vcs
+          .status({ location })
+          .then(
+            (result) => diffs.set(key, { stat: diffTotals(result?.data), at: Date.now() }),
+            () => {
+              // No repository, no provider, or a host too busy: a location
+              // that cannot answer reads as a clean tree until the interval.
+              diffs.set(key, { stat: { added: 0, deleted: 0 }, at: Date.now() })
+            },
+          )
+          .finally(() => {
+            diffing.delete(key)
+            bump()
+          })
+      } catch {
+        // A host without the VCS surface: leave the segment dark.
+        diffing.delete(key)
+      }
+    }
+
+    /** The `+12 -3` counter: additions green, deletions red, a clean tree silent. */
+    const diffRuns = (stat: DiffStat): Run[] => {
+      const runs: Run[] = []
+      for (const [index, part] of diffParts(stat).entries()) {
+        if (index > 0) runs.push(muted(" "))
+        runs.push({ text: part.text, tone: part.side === "added" ? "success" : "error" })
+      }
+      return runs
+    }
 
     const meterRuns = (view: Display, each: Meter): Run[] => {
       const runs = gaugeFor(capInput(view, each))
@@ -495,6 +549,13 @@ export default Plugin.define({
           if (found && view) part = meterRuns(view, found)
         } else if (segment === "cost") part = costRuns(session)
         else if (segment === "time") part = timeRuns(session, now)
+        else if (segment === "diff") {
+          const location = sessionLocation(sessionID)
+          const key = diffKey(location)
+          const reading = diffs.get(key)
+          if (diffDue(reading, now, config.diffRefreshMs)) refreshDiff(key, location)
+          if (reading) part = diffRuns(reading.stat)
+        }
         if (part.length === 0) continue
         rows.push(part)
       }

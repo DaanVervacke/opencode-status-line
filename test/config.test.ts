@@ -208,6 +208,23 @@ describe("validation", () => {
     expect(warnings.some((warning) => warning.includes("nope"))).toBe(true)
   })
 
+  test("the diff counter is a known segment with its own refresh interval", () => {
+    expect(DEFAULT_CONFIG.usageSegments).toContain("diff")
+    const { config, warnings } = read({
+      [PROJECT]: JSON.stringify({ usage: { segments: ["diff", "meter"] } }),
+    })
+    expect(config.usageSegments).toEqual(["diff", "meter"])
+    expect(warnings).toEqual([])
+    expect(read({}).config.diffRefreshMs).toBe(DEFAULT_CONFIG.diffRefreshMs)
+    expect(read({ [PROJECT]: JSON.stringify({ diff: { refreshMs: 1_000 } }) }).config.diffRefreshMs).toBe(1_000)
+  })
+
+  test("a diff refresh interval below the floor warns and keeps the default", () => {
+    const { config, warnings } = read({ [PROJECT]: JSON.stringify({ diff: { refreshMs: 10 } }) })
+    expect(config.diffRefreshMs).toBe(DEFAULT_CONFIG.diffRefreshMs)
+    expect(warnings.some((warning) => warning.includes("diff.refreshMs"))).toBe(true)
+  })
+
   test("usage separator, width and thresholds are configurable", () => {
     const { config, warnings } = read({
       [PROJECT]: JSON.stringify({

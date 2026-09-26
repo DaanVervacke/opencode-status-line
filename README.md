@@ -1,11 +1,11 @@
 # opencode-status-line
 
 A live status line for [OpenCode](https://opencode.ai) v2's terminal UI — context
-window, cache, streaming speed, cost and elapsed time in one configurable row,
-wrapping to more rows when the window is narrow.
+window, cache, streaming speed, cost, elapsed time and uncommitted changes in
+one configurable row, wrapping to more rows when the window is narrow.
 
 ```
-██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
+██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m │ +42 -7
 ```
 
 - **Sliding (`↯`)** — streamed characters over the last few seconds: what is
@@ -26,6 +26,11 @@ wrapping to more rows when the window is narrow.
 - **Shells** — how many shell commands the session is running right now; click
   it to toggle the composer, whose Shell tab lists them and opens the host's
   output viewer. The segment hides itself when nothing is executing.
+- **Uncommitted changes (`+12 -3`)** — additions and deletions in the working
+  tree, green and red, straight from the host's VCS registry: staged, unstaged
+  and untracked changes alike. A clean tree draws nothing. The counter is
+  re-asked every `diff.refreshMs`, and again as soon as a turn closes, so it
+  follows the agent's edits without a `git` process per repaint.
 - **Cost and time** — the session's spend and elapsed time.
 - **A steady line** — figures are drawn in a fixed three-character field
   (`8.3`, ` 47`, `198`), so nothing moves sideways as the numbers change.
@@ -46,8 +51,8 @@ wrapping to more rows when the window is narrow.
   box; the gauge and context bar keep their configured widths. Widening the
   window puts the line back on one row.
 
-The pieces are `shells`, `context`, `cache`, `meter`, `cost`, and `time`;
-`usage.segments` sets which appear and in what order, and a segment with
+The pieces are `shells`, `context`, `cache`, `meter`, `cost`, `time`, and
+`diff`; `usage.segments` sets which appear and in what order, and a segment with
 nothing to say is skipped along with its separator. `/opencode-status-line` shows the numbers
 behind the speed readings (rolling average, mean, p95).
 
@@ -56,7 +61,7 @@ Only the streaming speed is estimated: OpenCode reports exact token counts at
 against them. Tool argument streaming (`session.tool.input.delta`) counts as
 output, and the exact decode span starts at the first token, so TTFT is not
 charged to the model. Context, cache, cost and time come straight from the
-session's records.
+session's records, and the diff counter from the host's VCS registry.
 
 A resumed session keeps its settled figure: the last turn's assistant messages
 carry their exact token counts and decode spans — from the first reasoning
@@ -130,12 +135,13 @@ inherit its default.
 | `colors.slow` | `20` | Yellow at or above; red below |
 | `history.samples` | `500` | Completed figures kept for the statistics |
 | `stats.windowMs` | `60000` | Rolling window for `avg` in the stats dialog |
-| `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
+| `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time", "diff"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
 | `usage.labels` | `"icons"` | How the fixed words read: `icons` draws `↯`, `μ`, `✓`, `⧉`; `words` spells out `avg` and `cache` |
 | `usage.separator` | `" │ "` | Drawn between segments |
 | `usage.contextWidth` | `"gauge"` | Cells the context bar draws: `"gauge"` matches `cap.gaugeWidth`, or a number from 1 to 60 to deviate |
 | `usage.warnAt` | `70` | Context fill turns yellow at this percentage |
 | `usage.dangerAt` | `90` | Context fill turns red at this percentage |
+| `diff.refreshMs` | `5000` | How often the diff counter re-asks the host's VCS registry, in milliseconds (500–600000); a closing turn refreshes it immediately |
 
 ## Commands
 
@@ -145,13 +151,14 @@ inherit its default.
 ## Development
 
 ```
-bun test                    # all four test files — no OpenCode needed
+bun test                    # all five test files — no OpenCode needed
 bun test test/rate.test.ts  # one module
 ```
 
 `src/tui.tsx` is the plugin entry; `src/rate.ts` is the speed maths,
 `src/render.ts` the gauge and context-bar geometry, `src/format.ts` the
-usage-line formatting, and `src/config.ts` the JSON loader. The root `tui.tsx`
+usage-line formatting, `src/diff.ts` the uncommitted-change counter, and
+`src/config.ts` the JSON loader. The root `tui.tsx`
 re-exports the entry for OpenCode's directory plugin resolution — it exists for
 checkouts loaded from `cli.json`; npm consumers reach the entry through the
 exports map instead.
