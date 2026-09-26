@@ -1,5 +1,16 @@
 import { describe, expect, test } from "bun:test"
-import { columnWidth, contextBar, cutRuns, gauge, gaugeFor, joinedWidth, wrapRows, type CapInput, type Run } from "../src/render.ts"
+import {
+  columnWidth,
+  contextBar,
+  cutRuns,
+  gauge,
+  gaugeFor,
+  hostRuns,
+  joinedWidth,
+  wrapRows,
+  type CapInput,
+  type Run,
+} from "../src/render.ts"
 
 const text = (runs: { text: string }[]): string => runs.map((run) => run.text).join("")
 
@@ -98,6 +109,26 @@ describe("cutRuns", () => {
 
   test("no room draws nothing", () => {
     expect(cutRuns(runs, 0)).toEqual([])
+  })
+
+  test("a host run keeps its mark through a cut", () => {
+    expect(cutRuns([{ text: "abc", tone: "success", host: true }], 2)).toEqual([
+      { text: "a…", tone: "success", host: true },
+    ])
+  })
+})
+
+describe("hostRuns", () => {
+  test("marks every run for the host theme, copying rather than mutating", () => {
+    const runs: Run[] = [
+      { text: "aa", tone: "success", dim: true },
+      { text: "bb", tone: "muted", onClick: () => {} },
+    ]
+    const marked = hostRuns(runs)
+    expect(marked.every((run) => run.host === true)).toBe(true)
+    expect(marked[0]).toMatchObject({ text: "aa", tone: "success", dim: true })
+    expect(marked[1]!.onClick).toBe(runs[1]!.onClick)
+    expect(runs.every((run) => run.host === undefined)).toBe(true)
   })
 })
 

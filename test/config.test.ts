@@ -115,6 +115,16 @@ describe("validation", () => {
     expect(DEFAULT_CONFIG.toneOverrides).toEqual({})
   })
 
+  test("colors.exclude names the segments that keep the host colours", () => {
+    expect(read({}).config.excludeSegments).toEqual([])
+    const { config, warnings } = read({
+      [PROJECT]: JSON.stringify({ colors: { exclude: ["diff", "meter", "diff", "nope"] } }),
+    })
+    expect(config.excludeSegments).toEqual(["diff", "meter"])
+    expect(warnings.some((warning) => warning.includes("colors.exclude"))).toBe(true)
+    expect(read({ [PROJECT]: JSON.stringify({ colors: { exclude: "diff" } }) }).config.excludeSegments).toEqual([])
+  })
+
   test("calibration bounds must stay ordered", () => {
     const { config, warnings } = read({ [PROJECT]: JSON.stringify({ calibration: { min: 9, max: 3 } }) })
     expect(config.ratioMin).toBe(DEFAULT_CONFIG.ratioMin)

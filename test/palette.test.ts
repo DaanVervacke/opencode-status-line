@@ -22,6 +22,17 @@ describe("registry", () => {
     }
   })
 
+  test("the monochrome palettes keep every status ink on the text shade", () => {
+    for (const name of ["grey", "white"]) {
+      const palette = resolvePalette(name, "dark")
+      expect(palette?.name).toBe(name)
+      expect(palette?.tones.success).toBe(palette?.tones.text)
+      expect(palette?.tones.warning).toBe(palette?.tones.text)
+      expect(palette?.tones.error).toBe(palette?.tones.text)
+      expect(palette?.tones.muted).not.toBe(palette?.tones.text)
+    }
+  })
+
   test("every family resolves in both modes to one of its own", () => {
     for (const family of PALETTE_FAMILIES) {
       for (const mode of ["dark", "light"] as const) {

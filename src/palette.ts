@@ -248,6 +248,33 @@ export const PALETTES: readonly Palette[] = [
       error: "#f52a65",
     },
   },
+  // Monochrome — one hue throughout: the status inks share the text shade, so
+  // speeds, the context bar and the diff all read flat, and only the muted
+  // secondary ink steps down. Background-agnostic; pick by taste.
+  {
+    name: "grey",
+    family: "grey",
+    mode: "dark",
+    tones: {
+      text: "#9e9e9e",
+      muted: "#6b6b6b",
+      success: "#9e9e9e",
+      warning: "#9e9e9e",
+      error: "#9e9e9e",
+    },
+  },
+  {
+    name: "white",
+    family: "white",
+    mode: "dark",
+    tones: {
+      text: "#ffffff",
+      muted: "#dcdcdc",
+      success: "#ffffff",
+      warning: "#ffffff",
+      error: "#ffffff",
+    },
+  },
 ]
 
 /** The family names, in registry order, for warnings and the README. */

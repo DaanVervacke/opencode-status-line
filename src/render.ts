@@ -15,8 +15,18 @@ export interface Run {
   tone?: RunTone
   /** Draw this run in the muted shade of its tone (held or settled figures). */
   dim?: boolean
+  /** Draw this run from the host theme: its segment is excluded from the palette. */
+  host?: boolean
   /** Clicking this run calls this; the shells count opens its list. */
   onClick?: () => void
+}
+
+/**
+ * The runs as the host theme would draw them, a chosen palette set aside for
+ * one segment (`colors.exclude`). Copies, so the caller's runs stay untouched.
+ */
+export function hostRuns(runs: readonly Run[]): Run[] {
+  return runs.map((run) => ({ ...run, host: true }))
 }
 
 /** How the gauge is chosen; `auto` is the historical alias for `gauge`. */

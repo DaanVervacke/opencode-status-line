@@ -55,7 +55,7 @@ import {
   tpsStats,
   USAGE_LABELS,
 } from "./rate.ts"
-import { columnWidth, contextBar, cutRuns, gaugeFor, joinedWidth, wrapRows, type CapInput, type Run, type RunTone } from "./render.ts"
+import { columnWidth, contextBar, cutRuns, gaugeFor, hostRuns, joinedWidth, wrapRows, type CapInput, type Run, type RunTone } from "./render.ts"
 import { cacheShare, compact, contextUsed, duration, money, pressureTone, shellsLabel, type TokenRecord } from "./format.ts"
 
 /** How often the line redraws while something is on screen. */
@@ -342,10 +342,14 @@ export default Plugin.define({
     /**
      * A run's colour: the tone at full strength while live, muted once
      * settled. With `colors.enabled` off, tones are ignored and the line
-     * takes the body and muted inks alone.
+     * takes the body and muted inks alone. A run marked `host` — its segment
+     * is excluded from the palette — draws from the OpenCode theme instead,
+     * overrides and all.
      */
-    const toneColor = (tone: RunTone | undefined, muted: boolean): string | undefined =>
-      inkColor(config.colors ? tone : undefined, muted, palette, config.toneOverrides, context.theme.text)
+    const toneColor = (tone: RunTone | undefined, muted: boolean, host = false): string | undefined =>
+      host
+        ? inkColor(config.colors ? tone : undefined, muted, undefined, {}, context.theme.text)
+        : inkColor(config.colors ? tone : undefined, muted, palette, config.toneOverrides, context.theme.text)
 
     /** Settings for the gauge: the session's high-water mark sets its scale. */
     const capInput = (view: Display, each: Meter): CapInput => ({
@@ -565,7 +569,9 @@ export default Plugin.define({
           if (reading) part = diffRuns(reading.stat)
         }
         if (part.length === 0) continue
-        rows.push(part)
+        // An excluded segment always draws in the host theme: mark its runs
+        // before they reach the colourizer.
+        rows.push(config.excludeSegments.includes(segment) ? hostRuns(part) : part)
       }
       return rows
     }
@@ -736,7 +742,7 @@ export default Plugin.define({
       // the default foreground. Text renderables below still take `fg`.
       const spans = (runs: Run[]) =>
         runs.map((run) => (
-          <span style={{ fg: toneColor(run.tone, run.dim ?? false) }}>{run.text}</span>
+          <span style={{ fg: toneColor(run.tone, run.dim ?? false, run.host ?? false) }}>{run.text}</span>
         ))
       const [hovered, setHovered] = createSignal(false)
       return (
@@ -776,7 +782,11 @@ export default Plugin.define({
                         onMouseOver={() => setHovered(true)}
                         onMouseOut={() => setHovered(false)}
                         onMouseUp={() => run()?.onClick?.()}
-                        fg={hovered() ? toneColor(undefined, false) : toneColor(run().tone, run().dim ?? false)}
+                        fg={
+                          hovered()
+                            ? toneColor(undefined, false, run().host ?? false)
+                            : toneColor(run().tone, run().dim ?? false, run().host ?? false)
+                        }
                       >
                         {spans([run()])}
                       </text>

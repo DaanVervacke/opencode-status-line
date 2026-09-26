@@ -138,7 +138,9 @@ reference, so keep it in sync. `test/config.test.ts` injects a fake `read`;
 never touch disk from a test. `colors.palette` resolves through
 `src/palette.ts`: a family name follows `context.themeMode` (the host's
 resolved `dark`/`light`, never `system`), and a chosen palette's `muted` ink
-is where held figures and bar tracks go.
+is where held figures and bar tracks go. `colors.exclude` marks a segment's
+runs with `hostRuns` in `usageRows`, which `toneColor` reads to draw from the
+theme tokens instead.
 
 ## Commands
 

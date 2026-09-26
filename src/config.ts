@@ -119,6 +119,8 @@ export interface Config {
   palette: string
   /** Per-tone hex recolours, over the palette or the host theme's tokens. */
   toneOverrides: ToneOverrides
+  /** Segments that keep the host theme's colours even when a palette is chosen. */
+  excludeSegments: UsageSegment[]
   fastTps: number
   slowTps: number
   historySamples: number
@@ -160,6 +162,7 @@ export const DEFAULT_CONFIG: Config = {
   colors: true,
   palette: HOST_PALETTE,
   toneOverrides: {},
+  excludeSegments: [],
   fastTps: 50,
   slowTps: 20,
   historySamples: DEFAULT_RATE.historySamples,
@@ -406,6 +409,22 @@ function apply(draft: Draft, where: string, raw: unknown): void {
           // A fresh object per write: the draft's overrides start as DEFAULT_CONFIG's.
           config.toneOverrides = { ...config.toneOverrides, [tone]: hex }
         }
+      }
+    }
+    if ("exclude" in colors) {
+      const value = colors.exclude
+      if (!Array.isArray(value)) {
+        draft.warnings.push(`${where}: colors.exclude must be an array of segments — ignored`)
+      } else {
+        const wanted: UsageSegment[] = []
+        for (const entry of value) {
+          if (typeof entry === "string" && (USAGE_SEGMENTS as readonly string[]).includes(entry)) {
+            if (!wanted.includes(entry as UsageSegment)) wanted.push(entry as UsageSegment)
+          } else {
+            draft.warnings.push(`${where}: colors.exclude has unknown segment "${String(entry)}" — ignored`)
+          }
+        }
+        config.excludeSegments = wanted
       }
     }
   }

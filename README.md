@@ -42,8 +42,9 @@ one configurable row, wrapping to more rows when the window is narrow.
   `cache` back out.
 - **Themes** — the line follows the OpenCode theme's own colours by default;
   `colors.palette` can instead dress it in a bundled palette — Catppuccin,
-  Dracula, Gruvbox, Nord, Rosé Pine or Tokyo Night — and `colors.overrides`
-  can recolour single tones. See [Themes](#themes).
+  Dracula, Gruvbox, Nord, Rosé Pine, Tokyo Night, or the flat `grey` and
+  `white` — with `colors.overrides` to recolour single tones and
+  `colors.exclude` to opt a segment out. See [Themes](#themes).
 - **Sidebar-aware** — a `sidebar.*` surface stacks the segments, one per row,
   each cut to the sidebar's width with an `…`; the footer surfaces join the
   same segments across one line.
@@ -139,6 +140,7 @@ inherit its default.
 | `colors.slow` | `20` | Yellow at or above; red below |
 | `colors.palette` | `"host"` | The colour palette the line draws with: `host` follows the OpenCode theme's tokens, or a bundled palette — a variant like `catppuccin-mocha`, or a family like `catppuccin` that follows the host's light/dark mode. See [Themes](#themes) |
 | `colors.overrides` | `{}` | Per-tone `#rrggbb` recolours — `text`, `muted`, `success`, `warning` or `error` — layered over the palette, or over the host tokens when no palette is chosen. Held and settled figures wear `muted` |
+| `colors.exclude` | `[]` | Segments that always draw in the host theme's own colours, ignoring `colors.palette` and `colors.overrides`. Names from `usage.segments`, e.g. `["diff"]` keeps green/red diff counts on a monochrome line |
 | `history.samples` | `500` | Completed figures kept for the statistics |
 | `stats.windowMs` | `60000` | Rolling window for `avg` in the stats dialog |
 | `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time", "diff"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
@@ -167,6 +169,7 @@ dark mode and `catppuccin-latte` in light):
 | Nord | `nord` |
 | Rosé Pine | `rose-pine`, `rose-pine-moon`, `rose-pine-dawn` |
 | Tokyo Night | `tokyonight-night`, `tokyonight-storm`, `tokyonight-moon`, `tokyonight-day` |
+| Monochrome | `grey`, `white` — every status ink shares one shade, so speeds, the context bar and the diff all read flat |
 
 ```json
 {
@@ -183,6 +186,21 @@ or over the host tokens when no palette is chosen. The inks are `text` (body),
 three status colours `success`, `warning` and `error`, which colour the speed
 readings, the context bar and the diff counter. Every bundled hex is the
 theme's own published value, carrying only the inks the line draws with.
+
+A segment can also opt out of the palette entirely: `colors.exclude` lists
+segments that keep the OpenCode theme's own colours, with `colors.palette` and
+`colors.overrides` set aside for those runs alone — the separators between
+segments stay with the palette. This matters most with the monochrome
+palettes, which flatten the status inks:
+
+```json
+{
+  "colors": {
+    "palette": "grey",
+    "exclude": ["diff", "context"]
+  }
+}
+```
 
 ## Commands
 
