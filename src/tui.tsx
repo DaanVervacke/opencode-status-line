@@ -26,7 +26,7 @@
  */
 import { Plugin } from "@opencode/plugin/tui"
 import { Show, createMemo, createSignal } from "solid-js"
-import { loadConfig, rateOptions, type Config } from "./config.ts"
+import { contextBarWidth, loadConfig, rateOptions, type Config } from "./config.ts"
 import type { Display, Meter } from "./rate.ts"
 import {
   active,
@@ -99,6 +99,7 @@ export default Plugin.define({
     const config: Config = loaded.config
     const opts = rateOptions(config)
     const labels = USAGE_LABELS[config.labels]
+    const contextWidth = contextBarWidth(config)
     for (const warning of loaded.warnings) {
       console.warn(`opencode-status-line: ${warning}`)
       context.ui.toast.show({ variant: "warning", title: "opencode-status-line", message: warning, duration: 10_000 })
@@ -349,7 +350,7 @@ export default Plugin.define({
       const ratio = Math.min(1, used / limit)
       const tone = pressureTone(ratio, config.contextWarn / 100, config.contextDanger / 100)
       return [
-        ...contextBar(ratio, config.contextWidth, tone),
+        ...contextBar(ratio, contextWidth, tone),
         { text: ` ${Math.round(ratio * 100)}%`, tone },
         muted(" — "),
         muted(compact(used)),

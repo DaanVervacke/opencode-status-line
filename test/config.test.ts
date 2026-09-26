@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DEFAULT_CONFIG, loadConfig, rateOptions } from "../src/config.ts"
+import { contextBarWidth, DEFAULT_CONFIG, loadConfig, rateOptions } from "../src/config.ts"
 
 const HOME = "/home/test"
 const DIR = "/work/project"
@@ -139,6 +139,23 @@ describe("validation", () => {
     expect(config.contextWidth).toBe(20)
     expect(config.contextWarn).toBe(50)
     expect(config.contextDanger).toBe(80)
+  })
+
+  test("usage.contextWidth follows the gauge unless given a number", () => {
+    expect(read({}).config.contextWidth).toBe("gauge")
+    expect(contextBarWidth(read({}).config)).toBe(DEFAULT_CONFIG.gaugeWidth)
+    // Following means the gauge's own width, whenever it is set.
+    expect(contextBarWidth(read({ [PROJECT]: JSON.stringify({ cap: { gaugeWidth: 20 } }) }).config)).toBe(20)
+    // A number deviates; "gauge" goes back to following.
+    expect(contextBarWidth(read({ [PROJECT]: JSON.stringify({ usage: { contextWidth: 7 } }) }).config)).toBe(7)
+    expect(
+      contextBarWidth(
+        read({ [PROJECT]: JSON.stringify({ cap: { gaugeWidth: 20 }, usage: { contextWidth: "gauge" } }) }).config,
+      ),
+    ).toBe(20)
+    const { config, warnings } = read({ [PROJECT]: JSON.stringify({ usage: { contextWidth: "wide" } }) })
+    expect(config.contextWidth).toBe(DEFAULT_CONFIG.contextWidth)
+    expect(warnings.some((warning) => warning.includes("usage.contextWidth"))).toBe(true)
   })
 
   test("usage.labels picks the glyphs or the words", () => {

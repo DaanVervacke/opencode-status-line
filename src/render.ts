@@ -37,6 +37,9 @@ export interface CapInput {
 /** Fractions of a cell, indexed by eighths left over. */
 const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"]
 const TRACK = "·"
+/** The light vertical edges both bars wear, so they read as one family. */
+const EDGE_START = "▕"
+const EDGE_END = "▏"
 
 /** Fill and remaining track for a ratio, at eighth-cell resolution. */
 function cells(ratio: number, width: number): { fill: string; track: string } {
@@ -47,6 +50,20 @@ function cells(ratio: number, width: number): { fill: string; track: string } {
   let fill = "█".repeat(Math.min(full, width))
   if (full < width && rest > 0) fill += EIGHTHS[rest]
   return { fill, track: TRACK.repeat(Math.max(0, width - fill.length)) }
+}
+
+/**
+ * One bar, assembled: `▕████▋···▏`. Both bars are this same drawing at the
+ * same width, so they match in cells, edges, columns and level count; only
+ * the fill's tone and what the ratio means differ.
+ */
+function barRuns(ratio: number, width: number, fillTone: RunTone): Run[] {
+  const { fill, track } = cells(ratio, width)
+  const runs: Run[] = [{ text: EDGE_START, tone: "muted" }]
+  if (fill.length > 0) runs.push({ text: fill, tone: fillTone })
+  if (track.length > 0) runs.push({ text: track, tone: "muted" })
+  runs.push({ text: EDGE_END, tone: "muted" })
+  return runs
 }
 
 /**
@@ -64,25 +81,16 @@ export function gauge(
 ): Run[] {
   const scale = Math.max(peak, floor)
   const frac = scale > 0 ? tps / scale : 0
-  const { fill, track } = cells(frac, width)
-  const runs: Run[] = [{ text: "▕", tone: "muted" }]
-  if (fill.length > 0) runs.push({ text: fill, tone: speedTone(tps, fast, slow) })
-  if (track.length > 0) runs.push({ text: track, tone: "muted" })
-  runs.push({ text: "▏", tone: "muted" })
-  return runs
+  return barRuns(frac, width, speedTone(tps, fast, slow))
 }
 
 /**
- * Context-window bar: `▐████████······▌`. The fill wears the pressure tone the
- * caller chose — green while there is room, red near the limit.
+ * Context-window bar: `▕████████······▏`, the gauge's drawing with the
+ * pressure tone the caller chose — green while there is room, red near the
+ * limit.
  */
 export function contextBar(ratio: number, width: number, tone: RunTone = "success"): Run[] {
-  const { fill, track } = cells(ratio, width)
-  const runs: Run[] = [{ text: "▐", tone: "muted" }]
-  if (fill.length > 0) runs.push({ text: fill, tone })
-  if (track.length > 0) runs.push({ text: track, tone: "muted" })
-  runs.push({ text: "▌", tone: "muted" })
-  return runs
+  return barRuns(ratio, width, tone)
 }
 
 /** The leading drawing: the gauge, unless the style turns it off. */

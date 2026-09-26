@@ -5,7 +5,7 @@ context window, cache, streaming speed, cost and elapsed time in one
 configurable row.
 
 ```
-▐████████······▌ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
+▕██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ▕████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m
 ```
 
 - **Sliding (`↯`)** — streamed characters over the last few seconds: what is
@@ -18,6 +18,8 @@ configurable row.
   off wears `✓`.
 - **Context window** — a pressure-coloured bar, the percentage used, and the
   token count: green while there is room, yellow as it fills, red near the limit.
+  It wears the speed gauge's drawing — same edges, cells, columns and levels —
+  unless `usage.contextWidth` picks its own cell count.
 - **Cache (`cache` / `⧉`)** — how much of what the model read came from cache, and
   the cached token count.
 - **Shells** — how many shell commands the session is running right now; click
@@ -106,7 +108,7 @@ inherit its default.
 | `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
 | `usage.labels` | `"icons"` | How the fixed words read: `icons` draws `↯`, `μ`, `✓`, `⧉`; `words` spells out `avg` and `cache` |
 | `usage.separator` | `" │ "` | Drawn between segments |
-| `usage.contextWidth` | `14` | Context bar width, in cells |
+| `usage.contextWidth` | `"gauge"` | Cells the context bar draws: `"gauge"` matches `cap.gaugeWidth`, or a number from 1 to 60 to deviate |
 | `usage.warnAt` | `70` | Context fill turns yellow at this percentage |
 | `usage.dangerAt` | `90` | Context fill turns red at this percentage |
 

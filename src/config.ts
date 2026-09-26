@@ -35,6 +35,9 @@ export type UsageSegment = (typeof USAGE_SEGMENTS)[number]
 
 export type CapMode = CapStyle
 
+/** A bar's cell count, or `"gauge"` to take the speed gauge's width. */
+export type BarWidth = number | "gauge"
+
 export interface Config {
   surface: Surface
   /** Which live readings the line shows, in order. Empty shows only settled figures. */
@@ -64,8 +67,8 @@ export interface Config {
   labels: LabelStyle
   /** Drawn between segments of the usage line. */
   usageSeparator: string
-  /** Context bar width, in cells. */
-  contextWidth: number
+  /** Cells the context bar draws; `"gauge"` matches `cap.gaugeWidth`. */
+  contextWidth: BarWidth
   /** Context fill turns yellow at this percentage. */
   contextWarn: number
   /** Context fill turns red at this percentage. */
@@ -96,9 +99,14 @@ export const DEFAULT_CONFIG: Config = {
   usageSegments: [...USAGE_SEGMENTS],
   labels: "icons",
   usageSeparator: " │ ",
-  contextWidth: 14,
+  contextWidth: "gauge",
   contextWarn: 70,
   contextDanger: 90,
+}
+
+/** The context bar's cell count, with `"gauge"` resolved to the gauge's width. */
+export function contextBarWidth(config: Config): number {
+  return config.contextWidth === "gauge" ? config.gaugeWidth : config.contextWidth
 }
 
 /** The maths half of the config, for `rate.ts`. */
@@ -337,7 +345,18 @@ function apply(draft: Draft, where: string, raw: unknown): void {
         draft.warnings.push(`${where}: usage.separator must be a short string — kept "${config.usageSeparator}"`)
       }
     }
-    num(draft, where, "usage.contextWidth", usage.contextWidth, 1, 60, (value) => (config.contextWidth = value))
+    if ("contextWidth" in usage) {
+      const value = usage.contextWidth
+      if (value === "gauge") {
+        config.contextWidth = "gauge"
+      } else if (typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 60) {
+        config.contextWidth = value
+      } else {
+        draft.warnings.push(
+          `${where}: usage.contextWidth must be "gauge" or a number from 1 to 60 — kept the previous value`,
+        )
+      }
+    }
     num(draft, where, "usage.warnAt", usage.warnAt, 0, 100, (value) => (config.contextWarn = value))
     num(draft, where, "usage.dangerAt", usage.dangerAt, 0, 100, (value) => (config.contextDanger = value))
   }

@@ -41,7 +41,7 @@ describe("gauge", () => {
 
 describe("contextBar", () => {
   test("draws caps, fill and track at the given ratio", () => {
-    expect(text(contextBar(0.5, 10))).toBe("▐█████·····▌")
+    expect(text(contextBar(0.5, 10))).toBe("▕█████·····▏")
   })
 
   test("wears the pressure tone the caller chose", () => {
@@ -51,7 +51,14 @@ describe("contextBar", () => {
   })
 
   test("stays within its width when the ratio runs over", () => {
-    expect(text(contextBar(2, 8))).toBe("▐████████▌")
+    expect(text(contextBar(2, 8))).toBe("▕████████▏")
+  })
+
+  test("matches the gauge cell for cell — same edges, columns and levels", () => {
+    for (const ratio of [0, 0.25, 0.5, 0.75, 1]) {
+      expect(text(contextBar(ratio, 9))).toBe(text(gauge(ratio * 100, 100, 9, 0)))
+    }
+    expect(text(contextBar(1, 9))).toHaveLength(11)
   })
 })
 
