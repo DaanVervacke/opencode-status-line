@@ -586,8 +586,13 @@ export default Plugin.define({
           return []
         }
       })
+      // A `span` takes its colour through `style`, not a bare `fg` prop:
+      // @opentui/solid drops `fg` on spans, which paints the whole line in
+      // the default foreground. Text renderables below still take `fg`.
       const spans = (runs: Run[]) =>
-        runs.map((run) => <span fg={toneColor(run.tone, run.dim ?? false)}>{run.text}</span>)
+        runs.map((run) => (
+          <span style={{ fg: toneColor(run.tone, run.dim ?? false) }}>{run.text}</span>
+        ))
       const [hovered, setHovered] = createSignal(false)
       return (
         <Show when={view().length > 0}>
