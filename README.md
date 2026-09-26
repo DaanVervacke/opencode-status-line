@@ -15,7 +15,8 @@ wrapping to more rows when the window is narrow.
   plus the step in flight, over their decode time: what the turn is averaging.
 - **Settled (`avg` / `μ` / `✓`)** — when a step or turn finishes, its exact figure
   takes over the cumulative row and stays there; a step's own figure with folding
-  off wears `✓`.
+  off wears `✓`. A resumed session rebuilds it from the session's stored
+  messages, so the meter comes back showing its last value.
 - **Context window** — a pressure-coloured bar, the percentage used, and the
   token count: green while there is room, yellow as it fills, red near the limit.
   It wears the speed gauge's drawing — same cells, same trailing edge, same
@@ -56,6 +57,19 @@ against them. Tool argument streaming (`session.tool.input.delta`) counts as
 output, and the exact decode span starts at the first token, so TTFT is not
 charged to the model. Context, cache, cost and time come straight from the
 session's records.
+
+A resumed session keeps its settled figure: the last turn's assistant messages
+carry their exact token counts and decode spans — from the first reasoning
+timestamp where the record kept one — and the plugin folds them back together,
+so the meter segment shows its last figure again, dimmed, with `↯` resting at
+`0.0` and the gauge empty. It is the same measurement from the same tokens, but
+not bit-identical to the live reading: the live meter's span runs between two
+event timestamps — the first stream delta and the step's end — that the record
+does not keep, so the rebuilt figure can land around a percent away. The window
+reading itself is the exception: it summarises the arrival times of individual
+stream chunks, which no record keeps, so a real `↯` figure returns with the next
+stream. The statistics (`/opencode-status-line`) are per-process for the same
+reason.
 
 ## Install
 

@@ -13,12 +13,16 @@ import {
   notePeak,
   observe,
   peakTps,
+  recordedSteps,
+  restoreFinal,
   speedTone,
   tpsStats,
   DEFAULT_RATE,
   USAGE_LABELS,
   type Meter,
   type RateOptions,
+  type RecordedMessage,
+  type RecordedStep,
 } from "../src/rate.ts"
 
 const T0 = 1_000_000
@@ -210,6 +214,131 @@ describe("turn fold", () => {
       endTurn(meter, T0 + index * 1_000 + 1_300, opts)
     }
     expect(meter.history).toHaveLength(2)
+  })
+})
+
+describe("resume seed", () => {
+  const step = (tokens: number, at: number, endedAt: number): RecordedStep => ({ tokens, at, endedAt })
+  const message = (over: Partial<RecordedMessage> = {}): RecordedMessage => ({
+    type: "assistant",
+    time: { created: T0, completed: T0 + 3_000 },
+    tokens: { output: 100 },
+    content: [{ type: "reasoning", time: { created: T0 + 1_000, completed: T0 + 2_900 } }],
+    ...over,
+  })
+
+  test("reads only the last turn's completed messages, oldest first", () => {
+    const messages: RecordedMessage[] = [
+      { type: "user", time: { created: T0 - 100_000 } },
+      message({ time: { created: T0 - 99_000, completed: T0 - 90_000 }, tokens: { output: 500 } }),
+      { type: "user", time: { created: T0 } },
+      // `streamed` is a finalisation stamp, not the decode start.
+      message({ time: { created: T0 + 100, streamed: T0 + 2_950, completed: T0 + 3_000 } }),
+      { type: "shell", time: { created: T0 + 3_050 } },
+      message({
+        time: { created: T0 + 3_100, completed: T0 + 4_100 },
+        tokens: { output: 50, reasoning: 50 },
+        content: [{ type: "reasoning", time: { created: T0 + 3_200, completed: T0 + 4_000 } }],
+      }),
+    ]
+    expect(recordedSteps(messages)).toEqual([
+      { tokens: 100, at: T0 + 1_000, endedAt: T0 + 3_000 },
+      { tokens: 100, at: T0 + 3_200, endedAt: T0 + 4_100 },
+    ])
+  })
+
+  test("skips messages without a completion, a decode start or output", () => {
+    const messages: RecordedMessage[] = [
+      { type: "user", time: { created: T0 } },
+      message(),
+      message({ tokens: { output: 0, reasoning: 0 } }),
+      message({ time: { created: T0 } }), // still streaming
+      { type: "assistant", tokens: { output: 40 } }, // no times at all
+      { type: "assistant", time: { created: T0, completed: T0 + 1_000 }, tokens: { output: 100 } }, // no reasoning: falls back to created
+    ]
+    expect(recordedSteps(messages)).toEqual([
+      { tokens: 100, at: T0 + 1_000, endedAt: T0 + 3_000 },
+      { tokens: 100, at: T0, endedAt: T0 + 1_000 },
+    ])
+  })
+
+  test("the earliest reasoning part starts the span, not the clock or a tool", () => {
+    const messages = [
+      { type: "user", time: { created: T0 - 1 } },
+      message({
+        time: { created: T0, streamed: T0 + 2_950, completed: T0 + 3_000 },
+        content: [
+          { type: "reasoning", time: { created: T0 + 1_400, completed: T0 + 1_500 } },
+          { type: "reasoning", time: { created: T0 + 1_200, completed: T0 + 1_300 } },
+          { type: "tool", time: { created: T0 + 2_500, completed: T0 + 2_900 } },
+        ],
+      }),
+    ]
+    expect(recordedSteps(messages)).toEqual([{ tokens: 100, at: T0 + 1_200, endedAt: T0 + 3_000 }])
+  })
+
+  test("falls back to the message start without a timed reasoning part", () => {
+    const messages = [
+      { type: "user", time: { created: T0 - 1 } },
+      message({
+        time: { created: T0, completed: T0 + 2_000 },
+        content: [
+          { type: "text" },
+          { type: "tool", time: { created: T0 + 1_500, completed: T0 + 1_900 } },
+        ],
+      }),
+    ]
+    expect(recordedSteps(messages)).toEqual([{ tokens: 100, at: T0, endedAt: T0 + 2_000 }])
+  })
+
+  test("refuses a tail with no user boundary — the cache may hold one page", () => {
+    expect(recordedSteps([message(), message()])).toBeUndefined()
+    expect(recordedSteps([])).toBeUndefined()
+  })
+
+  test("restores the folded turn figure and leaves the live fold empty", () => {
+    const meter = createMeter()
+    const steps = [step(100, T0, T0 + 1_000), step(200, T0 + 1_100, T0 + 2_600)]
+    // 300 tokens over 2.5 s, not the newest step's 133.
+    expect(restoreFinal(meter, steps, T0 + 3_000)).toBeCloseTo(120, 5)
+    expect(meter.final).toEqual({ tps: 120, at: T0 + 3_000, kind: "turn" })
+    // The fold stays empty so a step starting later cannot absorb a stale turn.
+    expect(meter.turn).toEqual({ tokens: 0, ms: 0 })
+    // A resting window reading keeps the segment's shape without inventing a figure.
+    expect(meter.sliding).toEqual({ tps: 0, at: T0 + 3_000 })
+    expect(meter.peak).toBe(120)
+  })
+
+  test("folding off restores the newest step's own figure", () => {
+    const opts: RateOptions = { ...DEFAULT_RATE, turnFold: false }
+    const meter = createMeter(opts)
+    const steps = [step(100, T0, T0 + 1_000), step(100, T0 + 2_000, T0 + 4_000)]
+    expect(restoreFinal(meter, steps, T0 + 5_000, opts)).toBeCloseTo(50, 5)
+    expect(meter.final?.kind).toBe("step")
+    const view = display(meter, T0 + 6_000, ["sliding", "cumulative"], opts)
+    expect(view?.readings.map((reading) => reading.label)).toEqual(["↯", "✓"])
+  })
+
+  test("yields nothing when every recorded step is nonsense", () => {
+    const meter = createMeter()
+    expect(restoreFinal(meter, [], T0)).toBeUndefined()
+    expect(restoreFinal(meter, [step(100, T0, T0 + 10), step(100, T0, T0 + 7_200_000), step(0, T0, T0 + 1_000)], T0)).toBeUndefined()
+    expect(meter.final).toBeUndefined()
+    expect(meter.sliding).toBeUndefined()
+  })
+
+  test("a restored figure reads settled over a resting sliding reading", () => {
+    const meter = createMeter()
+    restoreFinal(meter, [step(100, T0, T0 + 1_000)], T0 + 1_000)
+    const view = display(meter, T0 + 2_000, ["sliding", "cumulative"])
+    expect(view?.live).toBe(false)
+    expect(view?.readings.map((reading) => reading.key)).toEqual(["sliding", "cumulative"])
+    expect(view?.readings[0]!.tps).toBe(0)
+    expect(view?.readings[0]!.live).toBe(false)
+    expect(view?.readings[1]!.label).toBe("μ")
+    expect(view?.readings[1]!.tps).toBeCloseTo(100, 5)
+    // The resting figure is the primary: the gauge draws empty under it.
+    expect(view?.primary).toBe(0)
   })
 })
 

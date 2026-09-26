@@ -3,7 +3,8 @@
  * cumulative average since the turn began, and the exact figures steps settle
  * with. The turn fold accumulates exact tokens and decode milliseconds across
  * a turn's steps, so a tool-heavy turn reports one weighted number rather than
- * a row of per-step figures.
+ * a row of per-step figures. It also rebuilds a finished turn's settled figure
+ * from a session's stored messages, for a process that never saw the events.
  *
  * Everything is a pure function of a `Meter` plus options, JSX-free and free
  * of OpenCode imports, so it can be exercised directly:
@@ -120,7 +121,7 @@ export interface Meter {
   charsPerToken: number
   /** Last settled figure, shown until something newer replaces it. */
   final?: Final
-  /** Last live sliding reading, held on screen after the stream stops. */
+  /** Last live sliding reading, held after the stream stops; a restore without one rests it at zero. */
   sliding?: { tps: number; at: number }
   /**
    * The session's high-water mark: the gauge's upper bound. It only ever rises,
@@ -305,6 +306,132 @@ export function endTurn(meter: Meter, now: number, opts: RateOptions = DEFAULT_R
   // empty fold and simply does nothing.
   meter.turn = { tokens: 0, ms: 0 }
   meter.step = undefined
+}
+
+/**
+ * A completed step as the session record kept it: exact output tokens over a
+ * server-clock decode span. `at` is the first token where the record knows it,
+ * `endedAt` the step's completion — the closest the record comes to the span
+ * `endStep` settles from.
+ */
+export interface RecordedStep {
+  tokens: number
+  at: number
+  endedAt: number
+}
+
+/**
+ * The bits of a stored session message the reconstruction reads. Structural on
+ * purpose: the host's message shape is wider, and this module takes no
+ * dependency on it.
+ */
+export interface RecordedMessage {
+  type?: string
+  time?: { created?: number; streamed?: number; completed?: number }
+  tokens?: { output?: number; reasoning?: number }
+  content?: readonly { type?: string; time?: { created?: number; completed?: number } }[]
+}
+
+/**
+ * The earliest point the record can place the step's first token: the first
+ * timestamp among its reasoning parts. `time.streamed` is a stream
+ * finalisation stamp (milliseconds before `completed`), not a start; text parts
+ * carry no timing at all, and a tool part is stamped when its call is
+ * registered, after its arguments streamed. A message without a timed reasoning
+ * part has no first token in the record, and callers fall back to its start.
+ */
+export function firstTokenAt(message: RecordedMessage): number | undefined {
+  let first: number | undefined
+  for (const part of message.content ?? []) {
+    if (part?.type !== "reasoning") continue
+    const at = part.time?.created
+    if (typeof at === "number" && (first === undefined || at < first)) first = at
+  }
+  return first
+}
+
+/**
+ * The last turn's steps, oldest first, read from a session's stored messages.
+ * A turn begins at the last user message; only assistant messages carry exact
+ * output counts, and one without a recorded end or without output is not a
+ * measurement. The span starts at the first reasoning timestamp where the
+ * record keeps one — the first token — and at the message's own start
+ * otherwise, which charges TTFT but cannot invent a timeline.
+ *
+ * Returns undefined when the messages hold no user message at all: the TUI
+ * cache can carry only the newest page of a long session, and folding its tail
+ * would report a figure no process ever measured. Callers wait for the page
+ * set to grow instead.
+ */
+export function recordedSteps(messages: readonly RecordedMessage[]): RecordedStep[] | undefined {
+  const steps: RecordedStep[] = []
+  let bounded = false
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index]!
+    if (message?.type === "user") {
+      bounded = true
+      break
+    }
+    if (message?.type !== "assistant") continue
+    const started = firstTokenAt(message) ?? message.time?.created
+    const ended = message.time?.completed
+    const tokens = (message.tokens?.output ?? 0) + (message.tokens?.reasoning ?? 0)
+    if (typeof started !== "number" || typeof ended !== "number" || tokens <= 0) continue
+    steps.push({ tokens, at: started, endedAt: ended })
+  }
+  if (!bounded) return undefined
+  return steps.reverse()
+}
+
+/** Whether a recorded step has tokens and a span worth measuring, by the same floors as `endStep`. */
+function measurable(step: RecordedStep): boolean {
+  if (step.tokens <= 0) return false
+  const span = step.endedAt - step.at
+  return span >= MIN_STEP_MS && span <= MAX_STEP_MS
+}
+
+/**
+ * Rebuild the settled state a finished turn left on the line, from its
+ * recorded steps — the resume counterpart of the live `endStep`/`endTurn`
+ * pair, for a process that never saw the events. The figure is close to the
+ * live one, not bit-identical: the live span ran between event timestamps the
+ * record does not keep, and the record's own end carries the finalisation
+ * tail, so around a percent of difference is expected. `final` takes the folded
+ * figure and the sliding reading rests at zero, so the segment keeps its shape
+ * — an empty gauge and a resting `↯` — without pretending a window the samples
+ * could not support. The turn fold is left empty: a step beginning later must
+ * not absorb a stale turn into its live average. Returns the figure, or
+ * undefined when nothing is measurable.
+ */
+export function restoreFinal(
+  meter: Meter,
+  steps: readonly RecordedStep[],
+  now: number,
+  opts: RateOptions = DEFAULT_RATE,
+): number | undefined {
+  let tps: number | undefined
+  if (opts.turnFold) {
+    let tokens = 0
+    let ms = 0
+    for (const step of steps) {
+      if (!measurable(step)) continue
+      tokens += step.tokens
+      ms += step.endedAt - step.at
+    }
+    if (tokens > 0 && ms > 0) tps = tokens / (ms / 1000)
+  } else {
+    for (let index = steps.length - 1; index >= 0; index--) {
+      const step = steps[index]!
+      if (!measurable(step)) continue
+      tps = step.tokens / ((step.endedAt - step.at) / 1000)
+      break
+    }
+  }
+  if (tps === undefined) return undefined
+  meter.final = { tps, at: now, kind: opts.turnFold ? "turn" : "step" }
+  meter.sliding = { tps: 0, at: now }
+  notePeak(meter, tps)
+  return tps
 }
 
 /** Whether the live window still has something worth redrawing. */

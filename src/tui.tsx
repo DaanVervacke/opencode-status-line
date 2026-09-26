@@ -15,7 +15,12 @@
  *
  * The settled figure folds the whole turn (configurable) and the sliding
  * reading holds its last value once a stream stops (`window.hold`), so the line
- * never loses its last figure at the finish line. The gauge stays on screen (it
+ * never loses its last figure at the finish line. A session met without a meter
+ * (a resume, a plugin reload) has its settled figure rebuilt from the last
+ * turn's recorded messages, so the meter segment does not come back blank — it
+ * shows the settled average over a resting `↯ 0.0` and an empty gauge. The
+ * sliding window's samples are delta arrival times no record keeps, so a real
+ * `↯` figure only returns with the next stream. The gauge stays on screen (it
  * holds the last reading once settled), figures are speed-coloured, and
  * `/opencode-status-line` shows the numbers behind them.
  *
@@ -36,10 +41,13 @@ import {
   display,
   endStep,
   endTurn,
+  firstTokenAt,
   formatRate,
   notePeak,
   observe,
   peakTps,
+  recordedSteps,
+  restoreFinal,
   speedTone,
   tpsStats,
   USAGE_LABELS,
@@ -85,6 +93,15 @@ interface Event {
     delta?: string
     tokens?: Tokens
   }
+}
+
+/** The bits of a stored session message the meter seed reads. */
+interface StoredMessage {
+  type?: string
+  id?: string
+  time?: { created?: number; streamed?: number; completed?: number }
+  content?: Array<{ type?: string; text?: string; time?: { created?: number; completed?: number } }>
+  tokens?: { output?: number; reasoning?: number }
 }
 
 /** Where a session's shells live. */
@@ -145,44 +162,79 @@ export default Plugin.define({
     }
 
     /**
-     * A generation can start while a turn is already streaming — a plugin
-     * reload, a TUI restart. That step has no record here, so its exact figure
-     * would be lost and the turn could end with no settled average. Seed it
-     * from OpenCode's own message data instead: the streaming assistant message
-     * carries its id, its start, and the text it has emitted so far.
+     * A session can meet this generation with history: a plugin reload or TUI
+     * restart lands on a turn already streaming, and a resume lands on one that
+     * finished in a past process. Either way there is no meter, and the line
+     * would show a blank meter segment while the other segments recompute from
+     * the records. Rebuild what the records carry for a session without one:
+     * the step in flight from its streaming message — so its exact figure still
+     * has a step to settle against — or the finished turn's settled figure from
+     * its completed assistant messages. The sliding window's samples are delta
+     * arrival times no record keeps, so the window reading rests at zero rather
+     * than being invented.
+     *
+     * Retried on later paints until the cache yields a foldable turn: at
+     * startup the host may hold only the newest page of a long session, and a
+     * tail without its user message is not a turn. `synced` forces the full
+     * fetch once per session; `seeding` keeps concurrent attempts apart.
      */
-    const seedStreaming = async () => {
+    const synced = new Set<string>()
+    const seeding = new Set<string>()
+    const seedMeter = async (sessionID: string) => {
+      if (seeding.has(sessionID)) return
+      seeding.add(sessionID)
       try {
-        const route = context.ui.router.current()
-        if (route.type !== "session") return
-        const sessionID = route.sessionID
         // The usage line's cost, tokens and start time come from this record.
         void context.data.session.sync(sessionID).catch(() => {})
-        // Deltas may have created the meter while the sync below was in
-        // flight; a step record is what the seed adds, so that is the guard.
-        if (meters.get(sessionID)?.step) return
-        await context.data.session.message.sync(sessionID)
-        const messages = context.data.session.message.list(sessionID)
-        let streaming: { id?: string; time?: { created?: number; streamed?: number; completed?: number }; content?: unknown[] } | undefined
-        for (const message of messages) {
-          const info = message as { type?: string; id?: string; time?: { created?: number; streamed?: number; completed?: number }; content?: unknown[] }
-          if (info?.type === "assistant" && info.time?.completed === undefined) streaming = info
+        // Live events may have produced state already; when they have, they
+        // are newer than the record and the seed stands down. Only a step
+        // record or a settled figure counts — a meter with neither is just
+        // the first delta, and this seed is exactly what it still lacks.
+        if (meters.get(sessionID)?.step || meters.get(sessionID)?.final) return
+        // The host hydrates a session's messages page by page to draw it, so
+        // the cache is not proof of the whole transcript. Force one full sync
+        // per session; afterwards, a still-partial cache is waited out rather
+        // than guessed at.
+        if (!synced.has(sessionID)) {
+          synced.add(sessionID)
+          await context.data.session.message.sync(sessionID)
         }
-        if (!streaming?.id) return
-        let chars = 0
-        for (const part of streaming.content ?? []) {
-          const block = part as { type?: string; text?: string }
-          if ((block?.type === "text" || block?.type === "reasoning") && typeof block.text === "string") chars += block.text.length
+        if (meters.get(sessionID)?.step || meters.get(sessionID)?.final) return
+        const messages = context.data.session.message.list(sessionID) as StoredMessage[] | undefined
+        let streaming: StoredMessage | undefined
+        for (const message of messages ?? []) {
+          if (message?.type === "assistant" && message.time?.completed === undefined) streaming = message
         }
-        const at = streaming.time?.streamed ?? streaming.time?.created ?? Date.now()
+        if (streaming?.id) {
+          let chars = 0
+          for (const part of streaming.content ?? []) {
+            if ((part.type === "text" || part.type === "reasoning") && typeof part.text === "string") chars += part.text.length
+          }
+          // The first reasoning timestamp is the closest thing to the first
+          // token the record keeps; `time.streamed` is a finalisation stamp,
+          // not a start.
+          const at = firstTokenAt(streaming) ?? streaming.time?.created ?? Date.now()
+          const each = meter(sessionID)
+          each.step = { assistantMessageID: streaming.id, chars, at, arrivedAt: Date.now(), tokenAt: at, tokenArrivedAt: Date.now() }
+          bump()
+          return
+        }
+        // Nothing is streaming: settle the last turn from its record. With no
+        // user message in hand the cache is still filling, so leave no meter —
+        // the meter branch retries on a later paint — and show no figure
+        // rather than a tail no process measured.
+        const steps = recordedSteps(messages ?? [])
+        if (!steps) return
         const each = meter(sessionID)
-        each.step = { assistantMessageID: streaming.id, chars, at, arrivedAt: Date.now(), tokenAt: at, tokenArrivedAt: Date.now() }
-        bump()
+        if (restoreFinal(each, steps, Date.now(), opts) !== undefined) bump()
       } catch (error) {
-        console.warn("opencode-status-line: could not seed the streaming step", error)
+        console.warn("opencode-status-line: could not seed the meter", error)
+      } finally {
+        seeding.delete(sessionID)
       }
     }
-    void seedStreaming()
+    const startup = context.ui.router.current()
+    if (startup.type === "session") void seedMeter(startup.sessionID)
 
     const onDelta = (event: Event) => {
       const data = event?.data
@@ -436,6 +488,10 @@ export default Plugin.define({
         else if (segment === "cache") part = cacheRuns(window.tokens)
         else if (segment === "meter") {
           const found = meters.get(sessionID)
+          // A session with no meter has met this generation mid-history — a
+          // resume, a reload: rebuild its last figure from the records. The
+          // seed repaints when it lands; this paint shows the other segments.
+          if (!found) void seedMeter(sessionID)
           const view = found ? display(found, now, config.readings, opts, labels) : undefined
           if (found && view) part = meterRuns(view, found)
         } else if (segment === "cost") part = costRuns(session)

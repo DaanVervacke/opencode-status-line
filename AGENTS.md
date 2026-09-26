@@ -52,6 +52,26 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   segment mid-turn on every save. State that must outlive a generation lives on
   `globalThis` (`sharedMeters` in `src/tui.tsx`). Touching `README.md` or
   `test/` does not reload; the `src/` imports do.
+- The meters are process-scoped too, so a session met without one — a resume, or
+  a reload before any delta — has its last figure seeded from the stored
+  messages: the step in flight from its streaming message, a finished turn's
+  settled figure from assistant tokens and decode spans (`recordedSteps` /
+  `restoreFinal` in `src/rate.ts`). The seed is lazy — the meter branch in
+  `usageRows` kicks it when the map misses — and retries on later paints until a
+  foldable turn appears: the host hydrates messages page by page, so a cache
+  whose tail has no `user` message is a partial page, and `recordedSteps`
+  returns undefined rather than folding it (a tail folded as a turn once showed
+  261 where the full turn was 243). One `message.sync` per session forces the
+  full fetch. On success the seed sets `final` plus a resting zero `sliding`
+  (empty gauge, `↯ 0.0`) and never the `turn` fold a later step would absorb.
+  `time.streamed` is a stream-finalisation stamp, not a first token: the span
+  starts at the first reasoning part's timestamp (`firstTokenAt`), or at the
+  message start when the record kept none. The rebuilt figure is close to, not
+  bit-identical with, the live one: the live span ran between event timestamps
+  the record does not keep, so the fold can sit around a percent away — accept
+  the tolerance, don't chase it with tool-time heuristics (last-tool-created and
+  tool-run subtraction both overshoot). The window samples and the statistics
+  are memory-only.
 - The session record (`data.session.get`) holds token totals cumulative across
   all turns. Context and cache must read the newest assistant message's own
   `tokens` (`windowInfo` in `src/tui.tsx`), or every prompt ever sent is counted.
