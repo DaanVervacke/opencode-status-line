@@ -360,8 +360,9 @@ export function firstTokenAt(message: RecordedMessage): number | undefined {
  *
  * Returns undefined when the messages hold no user message at all: the TUI
  * cache can carry only the newest page of a long session, and folding its tail
- * would report a figure no process ever measured. Callers wait for the page
- * set to grow instead.
+ * would report a figure no process ever measured — a tail folded once showed
+ * 261 where the full turn was 243. Callers wait for the page set to grow
+ * instead.
  */
 export function recordedSteps(messages: readonly RecordedMessage[]): RecordedStep[] | undefined {
   const steps: RecordedStep[] = []
@@ -396,7 +397,9 @@ function measurable(step: RecordedStep): boolean {
  * pair, for a process that never saw the events. The figure is close to the
  * live one, not bit-identical: the live span ran between event timestamps the
  * record does not keep, and the record's own end carries the finalisation
- * tail, so around a percent of difference is expected. `final` takes the folded
+ * tail, so around a percent of difference is expected and accepted — tool-time
+ * heuristics do not narrow it (starting at the last tool's creation, or
+ * subtracting tool runs, both overshoot). `final` takes the folded
  * figure and the sliding reading rests at zero, so the segment keeps its shape
  * — an empty gauge and a resting `↯` — without pretending a window the samples
  * could not support. The turn fold is left empty: a step beginning later must

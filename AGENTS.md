@@ -1,15 +1,15 @@
 # opencode-status-line
 
 OpenCode v2 TUI plugin: a prompt-footer status line (context, cache, streaming
-speed, cost, elapsed time, uncommitted changes). `README.md` is the user-facing
-reference for behaviour and every config key.
+speed, cost, elapsed time, uncommitted changes). `README.md` is the friendly
+introduction; `MANUAL.md` is the exhaustive user reference.
 
 ## What is unusual here
 
 - **No build step.** `package.json` publishes the source (`./tui` →
   `src/tui.tsx`) and OpenCode transpiles it on load; don't add a bundler or
-  lockfile. Nothing needs installing to work on the plugin — `bun test` is the
-  whole verification.
+  lockfile. Nothing needs installing to work on the plugin — `bun test` (or
+  `bun test test/rate.test.ts` for one module) is the whole verification.
 - **`src/tui.tsx` is the plugin entry**, loaded straight from this checkout —
   the live host's `~/.config/opencode/cli.json` lists the directory. OpenCode
   transpiles the TSX on load and hot-reloads on save, so a broken save shows up
@@ -35,12 +35,14 @@ reference for behaviour and every config key.
 | `src/diff.ts` | Uncommitted-change totals from the host's VCS status, and the diff segment's cache policy. Pure. |
 | `src/palette.ts` | The bundled colour palettes and palette/override resolution. Pure. |
 | `src/config.ts` | JSON config loader; pure except an injectable `read`. |
-| `test/*.test.ts` | One per pure module; `bun test` runs all six. |
+| `test/*.test.ts` | One per pure module. |
 | `tui.tsx` | Root shim re-exporting `src/tui.tsx`; see above. |
 
 Keep new logic in the pure modules so it can be tested without a terminal.
 
 ## Host-API traps (each cost a TUI restart to learn)
+
+### Entry rules — every edit to `src/tui.tsx`
 
 - Register the keymap layer inside the `app` slot's `render`, never directly in
   `setup`: v2 keeps the keymap provider in the component tree, so a `setup`
@@ -52,28 +54,27 @@ Keep new logic in the pure modules so it can be tested without a terminal.
 - Saving any `src/` file the entry imports hot-reloads the plugin: the module is
   re-imported and module scope comes back empty, which used to blank the meter
   segment mid-turn on every save. State that must outlive a generation lives on
-  `globalThis` (`sharedMeters` in `src/tui.tsx`). Touching `README.md` or
-  `test/` does not reload; the `src/` imports do.
-- The meters are process-scoped too, so a session met without one — a resume, or
-  a reload before any delta — has its last figure seeded from the stored
-  messages: the step in flight from its streaming message, a finished turn's
-  settled figure from assistant tokens and decode spans (`recordedSteps` /
-  `restoreFinal` in `src/rate.ts`). The seed is lazy — the meter branch in
-  `usageRows` kicks it when the map misses — and retries on later paints until a
-  foldable turn appears: the host hydrates messages page by page, so a cache
-  whose tail has no `user` message is a partial page, and `recordedSteps`
-  returns undefined rather than folding it (a tail folded as a turn once showed
-  261 where the full turn was 243). One `message.sync` per session forces the
-  full fetch. On success the seed sets `final` plus a resting zero `sliding`
-  (empty gauge, `↯ 0.0`) and never the `turn` fold a later step would absorb.
-  `time.streamed` is a stream-finalisation stamp, not a first token: the span
-  starts at the first reasoning part's timestamp (`firstTokenAt`), or at the
-  message start when the record kept none. The rebuilt figure is close to, not
-  bit-identical with, the live one: the live span ran between event timestamps
-  the record does not keep, so the fold can sit around a percent away — accept
-  the tolerance, don't chase it with tool-time heuristics (last-tool-created and
-  tool-run subtraction both overshoot). The window samples and the statistics
-  are memory-only.
+  `globalThis` (`sharedMeters` in `src/tui.tsx`). Touching `README.md`,
+  `MANUAL.md` or `test/` does not reload; the `src/` imports do.
+- A 250 ms ticker repaints only while a stream is active; a 1 s heartbeat keeps
+  the elapsed timer and held figures repainting when nothing streams. Stop
+  both in the cleanup function.
+
+### Speed maths and the session record
+
+- The meters are process-scoped: a session met without one — a resume, or a
+  reload before any delta — seeds its last figure from the stored messages
+  (`seedMeter` in `src/tui.tsx`; `recordedSteps` / `restoreFinal` in
+  `src/rate.ts` hold the logic and its rationale). The seed is lazy — the meter
+  branch in `usageRows` kicks it when the map misses — and retries on later
+  paints, because the host hydrates messages page by page and a partial page
+  must not fold as a turn; one `message.sync` per session forces the full fetch.
+  It sets `final` plus a resting zero `sliding` (empty gauge, `↯ 0.0`) — never
+  `turn`, which a later step would absorb — and the rebuilt figure is close to,
+  not bit-identical with, the live one: accept the ~1% tolerance rather than
+  chase it with tool-time heuristics. `time.streamed` is a stream-finalisation
+  stamp, not a first token (see `firstTokenAt`). Window samples and the
+  statistics are memory-only.
 - The session record (`data.session.get`) holds token totals cumulative across
   all turns. Context and cache must read the newest assistant message's own
   `tokens` (`windowInfo` in `src/tui.tsx`), or every prompt ever sent is counted.
@@ -83,6 +84,9 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   never mix the two (see `endStep` in `src/rate.ts`). Tool-argument deltas
   (`session.tool.input.delta`) count as output, and the decode span starts at
   the first token, so TTFT is not charged.
+
+### Host registries and the turn lifecycle
+
 - Shell counts come from the host's shell registry (`context.data.shell`),
   which holds a shell only while it executes; background shells live in a
   separate registry and never appear there. Match `status === "running"` and
@@ -98,6 +102,9 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   and that is the host's figure, not the plugin's to invent around.
 - `session.idle` also closes a turn as a late belt; `endTurn` is idempotent, so
   double-closing is safe.
+
+### Surfaces and width
+
 - A `sidebar.*` surface is a narrow column: `stackFor` stacks the segments one
   per row and each row is cut to `columnWidth(context.renderer.width)` with an
   ellipsis. `context.renderer` is the shared OpenTUI renderer, so read its width
@@ -123,9 +130,6 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   `app`, the composer top and the sidebars stretch to the host's width and
   need no basis. Footers and sidebars are placed by the host and take no
   padding by default.
-- A 250 ms ticker repaints only while a stream is active; a 1 s heartbeat keeps
-  the elapsed timer and held figures repainting when nothing streams. Stop
-  both in the cleanup function.
 
 ## Config
 
@@ -133,21 +137,15 @@ Precedence: `~/.config/opencode/opencode-status-line.json` (honours
 `XDG_CONFIG_HOME`) → `<project>/.opencode-status-line.json` → plugin entry
 options. Invalid files or values warn and are ignored, never fatal. Adding a
 key means `Config` + `DEFAULT_CONFIG` + validation in `src/config.ts`, plus
-`rateOptions` if it is maths, plus the README table — the README is the key
-reference, so keep it in sync. `test/config.test.ts` injects a fake `read`;
-never touch disk from a test. `colors.palette` resolves through
-`src/palette.ts`: a family name follows `context.themeMode` (the host's
-resolved `dark`/`light`, never `system`), and a chosen palette's `muted` ink
-is where held figures and bar tracks go. `colors.exclude` marks a segment's
-runs with `hostRuns` in `usageRows`, which `toneColor` reads to draw from the
-theme tokens instead.
-
-## Commands
-
-```
-bun test                       # all test files
-bun test test/rate.test.ts     # one module
-```
+`rateOptions` if it is maths, plus MANUAL.md — the key's chapter and
+`All settings at a glance`. README stays introductory; touch it only if the
+quick-start example or the feature list changed. `test/config.test.ts` injects
+a fake `read`; never touch disk from a test.
+`colors.palette` resolves through `src/palette.ts`: a family name follows
+`context.themeMode` (the host's resolved `dark`/`light`, never `system`), and a
+chosen palette's `muted` ink is where held figures and bar tracks go.
+`colors.exclude` marks a segment's runs with `hostRuns` in `usageRows`, which
+`toneColor` reads to draw from the theme tokens instead.
 
 ## Publishing
 

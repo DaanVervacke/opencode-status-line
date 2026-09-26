@@ -1,10 +1,11 @@
 # opencode-status-line — Customization Manual
 
-This manual shows you how to change the status line to look and behave the way
-you want. It assumes you already have the plugin loaded in OpenCode's CLI.
+This is the complete reference for the plugin: every setting, palette and
+behaviour. It assumes you already have the plugin loaded in OpenCode's CLI —
+the [README](README.md) covers install and the short version.
 
-If you are new here, read [Quick start](#quick-start) first. Then jump to the
-part you care about:
+If you are new here, read [Quick start](#2-quick-start) first. Then jump to
+the part you care about:
 
 1. [What the line shows](#1-what-the-line-shows)
 2. [Quick start](#2-quick-start)
