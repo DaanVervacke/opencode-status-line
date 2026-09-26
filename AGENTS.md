@@ -107,10 +107,10 @@ Keep new logic in the pure modules so it can be tested without a terminal.
 
 - `config.surface` is a list of placements: `setup` registers one slot renderer
   per entry (`renderFor(surface)`), each closing over its own
-  `stackFor`/`resolvedPadding`/`sharesHostRow` facts and owning its own
-  measured-width signal, while the shared `version` signal keeps every
-  placement repainting together. The stats command's `app` layer is registered
-  once, independent of the list.
+  `stackFor`/`resolvedPadding`/`sharesHostRow` facts and its own `segmentsFor`
+  list, owning its own measured-width signal, while the shared `version` signal
+  keeps every placement repainting together. The stats command's `app` layer is
+  registered once, independent of the list.
 - The line renders only when a session is on screen: the renderer resolves its
   session from the slot input or the route, and a non-session route (`home`, a
   plugin page) yields an empty row. `app` and `home.footer.status` are mounted
@@ -159,6 +159,9 @@ a fake `read`; never touch disk from a test.
 chosen palette's `muted` ink is where held figures and bar tracks go.
 `colors.exclude` marks a segment's runs with `hostRuns` in `usageRows`, which
 `toneColor` reads to draw from the theme tokens instead.
+`usage.surfaces` overrides `usage.segments` per placement; `segmentsFor`
+resolves the fallback, an empty override hides that placement, and the map
+merges across config sources like `padding`.
 
 ## Publishing
 

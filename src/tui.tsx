@@ -2,7 +2,8 @@
  * opencode-status-line — a live usage-and-speed status line for OpenCode's CLI
  * prompt footer: context window, cache, streaming speed, cost, elapsed time
  * and uncommitted changes in one row, drawn in one UI slot or several at once
- * (`surface`) and configurable per segment (`usage.segments`).
+ * (`surface`) and configurable per segment (`usage.segments`, overridable per
+ * placement through `usage.surfaces`).
  *
  * The speed segment carries two live readings. OpenCode only learns exact token
  * counts when a step finishes, so the live figures are estimated from streamed
@@ -32,7 +33,7 @@
  */
 import { Plugin } from "@opencode/plugin/tui"
 import { For, Show, createMemo, createSignal } from "solid-js"
-import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, sharesHostRow, stackFor, type Config, type Surface } from "./config.ts"
+import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, segmentsFor, sharesHostRow, stackFor, type Config, type Surface, type UsageSegment } from "./config.ts"
 import { diffDue, diffKey, diffParts, diffTotals, type DiffReading, type DiffStat, type StatusFile } from "./diff.ts"
 import { HOST_PALETTE, inkColor, resolvePalette } from "./palette.ts"
 import type { Display, Meter } from "./rate.ts"
@@ -534,17 +535,18 @@ export default Plugin.define({
     }
 
     /**
-     * The line's segments in the configured order, each as its own run list;
-     * a segment with nothing to say is skipped. How the rows meet is the
-     * surface's business: joined across for a footer, one per row for a
-     * sidebar.
+     * The given segments in their configured order, each as its own run list;
+     * a segment with nothing to say is skipped. The list is the placement's —
+     * `usage.surfaces` may differ from surface to surface — and how the rows
+     * meet is that surface's business: joined across for a footer, one per row
+     * for a sidebar.
      */
-    const usageRows = (sessionID: string, now: number): Run[][] => {
+    const usageRows = (segments: UsageSegment[], sessionID: string, now: number): Run[][] => {
       const session = sessionUsage(sessionID)
       const window = windowInfo(sessionID)
       const limit = contextLimit(window.model ?? session?.model)
       const rows: Run[][] = []
-      for (const segment of config.usageSegments) {
+      for (const segment of segments) {
         let part: Run[] = []
         if (segment === "shells") part = shellRuns(sessionID)
         else if (segment === "context") part = contextRuns(window.tokens, limit)
@@ -663,6 +665,8 @@ export default Plugin.define({
       const stack = stackFor(surface)
       const padding = resolvedPadding(config, surface)
       const sharesRow = sharesHostRow(surface)
+      // The placement's own segment list, or the shared `usage.segments`.
+      const segments = segmentsFor(config, surface)
       let warned = false
       /**
        * The width the host actually dealt this box, reported by layout. A
@@ -701,7 +705,7 @@ export default Plugin.define({
           // describing a conversation that is not open.
           const sessionID = input?.sessionID ?? currentSession()
           if (!sessionID) return { lines: [], basis: 0 }
-          const rows = usageRows(sessionID, Date.now())
+          const rows = usageRows(segments, sessionID, Date.now())
           if (rows.length === 0) return { lines: [], basis: 0 }
           const viewport = (context as { renderer?: { width?: number } }).renderer?.width
           const window = typeof viewport === "number" && viewport > 0 ? viewport : undefined

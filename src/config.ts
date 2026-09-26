@@ -129,8 +129,10 @@ export interface Config {
   slowTps: number
   historySamples: number
   statsWindowMs: number
-  /** The usage line's segments, in order. */
+  /** The usage line's segments, in order; the default for every placement. */
   usageSegments: UsageSegment[]
+  /** Per-surface segment lists; a surface absent here draws `usageSegments`. */
+  surfaceSegments: Partial<Record<Surface, UsageSegment[]>>
   /** How the line's fixed words read: glyphs, or spelled out. */
   labels: LabelStyle
   /** Drawn between segments of the usage line. */
@@ -172,6 +174,7 @@ export const DEFAULT_CONFIG: Config = {
   historySamples: DEFAULT_RATE.historySamples,
   statsWindowMs: 60_000,
   usageSegments: [...USAGE_SEGMENTS],
+  surfaceSegments: {},
   labels: "icons",
   usageSeparator: " │ ",
   diffRefreshMs: 5_000,
@@ -194,6 +197,15 @@ export function contextBarWidth(config: Config): number {
  */
 export function resolvedPadding(config: Config, surface: Surface): Padding {
   return { ...paddingFor(surface), ...config.padding[surface] }
+}
+
+/**
+ * The segments one placement draws: its own list where `usage.surfaces` names
+ * it, the shared `usage.segments` otherwise. An override left empty hides the
+ * line at that surface.
+ */
+export function segmentsFor(config: Config, surface: Surface): UsageSegment[] {
+  return config.surfaceSegments[surface] ?? config.usageSegments
 }
 
 /** The maths half of the config, for `rate.ts`. */
@@ -492,15 +504,32 @@ function apply(draft: Draft, where: string, raw: unknown): void {
       if (!Array.isArray(value)) {
         draft.warnings.push(`${where}: usage.segments must be an array — kept the previous order`)
       } else {
-        const wanted: UsageSegment[] = []
-        for (const entry of value) {
-          if (typeof entry === "string" && (USAGE_SEGMENTS as readonly string[]).includes(entry)) {
-            if (!wanted.includes(entry as UsageSegment)) wanted.push(entry as UsageSegment)
-          } else {
-            draft.warnings.push(`${where}: usage.segments has unknown entry "${String(entry)}" — ignored`)
+        config.usageSegments = segmentList(draft, where, "usage.segments", value)
+      }
+    }
+    if ("surfaces" in usage) {
+      const value = usage.surfaces
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        draft.warnings.push(`${where}: usage.surfaces must be an object of segment lists — ignored`)
+      } else {
+        for (const [surface, list] of Object.entries(value)) {
+          if (!(SURFACES as readonly string[]).includes(surface)) {
+            draft.warnings.push(`${where}: usage.surfaces.${surface} is not a surface — ignored`)
+            continue
+          }
+          if (!Array.isArray(list)) {
+            draft.warnings.push(`${where}: usage.surfaces.${surface} must be an array of segments — ignored`)
+            continue
+          }
+          // A placement's own list replaces the previous source's take on the
+          // same surface; surfaces a source does not name keep what they had,
+          // like the padding blocks do.
+          const named = surface as Surface
+          config.surfaceSegments = {
+            ...config.surfaceSegments,
+            [named]: segmentList(draft, where, `usage.surfaces.${surface}`, list),
           }
         }
-        config.usageSegments = wanted
       }
     }
     if ("labels" in usage) {
@@ -576,4 +605,17 @@ function bool(draft: Draft, where: string, key: string, value: unknown, set: (va
     return
   }
   set(value)
+}
+
+/** The valid, de-duplicated segments in a raw list, in order; warns about the rest. */
+function segmentList(draft: Draft, where: string, key: string, value: readonly unknown[]): UsageSegment[] {
+  const wanted: UsageSegment[] = []
+  for (const entry of value) {
+    if (typeof entry === "string" && (USAGE_SEGMENTS as readonly string[]).includes(entry)) {
+      if (!wanted.includes(entry as UsageSegment)) wanted.push(entry as UsageSegment)
+    } else {
+      draft.warnings.push(`${where}: ${key} has unknown segment "${String(entry)}" — ignored`)
+    }
+  }
+  return wanted
 }

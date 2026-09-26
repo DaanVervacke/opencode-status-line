@@ -6,6 +6,7 @@ import {
   paddingFor,
   rateOptions,
   resolvedPadding,
+  segmentsFor,
   sharesHostRow,
   stackFor,
 } from "../src/config.ts"
@@ -283,6 +284,71 @@ describe("validation", () => {
     })
     expect(config.usageSegments).toEqual(["meter", "cost"])
     expect(warnings.some((warning) => warning.includes("nope"))).toBe(true)
+  })
+
+  test("per-surface lists override the shared segments, the rest falling back", () => {
+    const { config, warnings } = read({
+      [PROJECT]: JSON.stringify({
+        surface: ["app", "sidebar.footer"],
+        usage: {
+          segments: ["context", "meter", "cost"],
+          surfaces: { "sidebar.footer": ["meter", "context"] },
+        },
+      }),
+    })
+    expect(warnings).toEqual([])
+    expect(config.usageSegments).toEqual(["context", "meter", "cost"])
+    expect(config.surfaceSegments).toEqual({ "sidebar.footer": ["meter", "context"] })
+    expect(segmentsFor(config, "sidebar.footer")).toEqual(["meter", "context"])
+    // A placement with no override draws the shared list.
+    expect(segmentsFor(config, "app")).toEqual(["context", "meter", "cost"])
+  })
+
+  test("no overrides means every placement draws the same segments", () => {
+    const { config } = read({ [PROJECT]: JSON.stringify({ surface: ["app", "sidebar.footer"] }) })
+    expect(config.surfaceSegments).toEqual({})
+    expect(segmentsFor(config, "app")).toEqual(config.usageSegments)
+    expect(segmentsFor(config, "sidebar.footer")).toEqual(config.usageSegments)
+  })
+
+  test("an empty per-surface list hides the line at that placement", () => {
+    const { config, warnings } = read({ [PROJECT]: JSON.stringify({ usage: { surfaces: { app: [] } } }) })
+    expect(warnings).toEqual([])
+    expect(segmentsFor(config, "app")).toEqual([])
+  })
+
+  test("per-surface lists drop duplicates and unknown names, and refuse unknown surfaces", () => {
+    const { config, warnings } = read({
+      [PROJECT]: JSON.stringify({
+        usage: {
+          surfaces: {
+            "sidebar.footer": ["meter", "nope", "meter"],
+            nowhere: ["cost"],
+            app: "meter",
+          },
+        },
+      }),
+    })
+    expect(config.surfaceSegments).toEqual({ "sidebar.footer": ["meter"] })
+    expect(warnings.length).toBe(3)
+    expect(warnings.some((warning) => warning.includes('usage.surfaces.sidebar.footer has unknown segment "nope"'))).toBe(true)
+    expect(warnings.some((warning) => warning.includes("usage.surfaces.nowhere is not a surface"))).toBe(true)
+    expect(warnings.some((warning) => warning.includes("usage.surfaces.app must be an array"))).toBe(true)
+  })
+
+  test("a non-object usage.surfaces warns and is ignored", () => {
+    const { config, warnings } = read({ [PROJECT]: JSON.stringify({ usage: { surfaces: ["meter"] } }) })
+    expect(config.surfaceSegments).toEqual({})
+    expect(warnings.some((warning) => warning.includes("usage.surfaces must be an object"))).toBe(true)
+  })
+
+  test("per-surface lists merge across sources and never touch the defaults", () => {
+    const { config } = read({
+      [GLOBAL]: JSON.stringify({ usage: { surfaces: { app: ["meter"] } } }),
+      [PROJECT]: JSON.stringify({ usage: { surfaces: { "sidebar.footer": ["cost"] } } }),
+    })
+    expect(config.surfaceSegments).toEqual({ app: ["meter"], "sidebar.footer": ["cost"] })
+    expect(DEFAULT_CONFIG.surfaceSegments).toEqual({})
   })
 
   test("the diff counter is a known segment with its own refresh interval", () => {

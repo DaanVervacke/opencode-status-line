@@ -25,10 +25,11 @@ changes in one configurable row.
 - `/opencode-status-line` (alias `/tps`, also in the command palette) opens a
   dialog with the numbers behind the meter.
 
-Put the line wherever you like — one slot or several at once: it wraps whole
-segments onto further rows when the window is narrow, stacks them one per row
-in a sidebar, and dresses itself in any of the bundled palettes — Catppuccin,
-Dracula, Gruvbox, Nord, Rosé Pine, Tokyo Night, or the flat `grey` and `white`.
+Put the line wherever you like — one slot or several at once, each placement
+with its own segments: it wraps whole segments onto further rows when the
+window is narrow, stacks them one per row in a sidebar, and dresses itself in
+any of the bundled palettes — Catppuccin, Dracula, Gruvbox, Nord, Rosé Pine,
+Tokyo Night, or the flat `grey` and `white`.
 
 ## Install
 
@@ -79,8 +80,8 @@ line.
 The [customization manual](MANUAL.md) is the complete reference:
 
 - [every setting, with its default and allowed values](MANUAL.md#10-all-settings-at-a-glance)
-- choosing and ordering the segments
-- moving the line around and padding it
+- choosing and ordering the segments, per placement if you like
+- placing the line in one slot or several at once, and padding it
 - understanding and tuning the speed meter
 - the bundled palettes, custom colours and per-segment opt-outs
 - ready-made setups to copy

@@ -24,8 +24,8 @@ the part you care about:
 
 ## 1. What the line shows
 
-The plugin adds one row to OpenCode's terminal UI. A default line looks like
-this:
+The plugin adds a row to OpenCode's terminal UI — one slot or several at once,
+each placement drawing the pieces you choose. A default line looks like this:
 
 ```
 ██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m │ +42 -7
@@ -153,6 +153,29 @@ The default order is all seven:
 To remove a piece, leave it out. To move a piece, move its name in the list.
 Duplicates and unknown names are ignored with a warning.
 
+### Different segments per placement
+
+When [`surface`](#4-move-the-line-around) puts the line in more than one place,
+`usage.surfaces` gives a placement its own list. Surfaces you leave out draw
+`usage.segments`, so without overrides every placement shows the same line.
+
+```json
+{
+  "surface": ["app", "sidebar.footer"],
+  "usage": {
+    "segments": ["context", "cache", "meter", "cost", "time", "diff"],
+    "surfaces": {
+      "sidebar.footer": ["context", "meter"]
+    }
+  }
+}
+```
+
+Each list follows the same rules as `usage.segments` — your order, duplicates
+and unknown names dropped with a warning — and an empty list hides the line at
+that placement. Naming a surface you did not put in `surface` is harmless and
+unused.
+
 **Get rid of the separators** with `usage.separator` (default `" │ "`, up to 8
 characters):
 
@@ -211,12 +234,14 @@ To show the line in more than one place at once, give `surface` a list:
 }
 ```
 
-Every placement draws the same segments, under that placement's own rules: a
-sidebar stacks them one per row, a one-line surface joins and wraps them, the
-footer surfaces share their row with OpenCode's text, and each surface's
-padding (including `app`'s indent and clear rows) is read per placement. A name
-repeated in the list is drawn once; an unknown name is ignored with a warning,
-and a list left with no known name keeps the previous placements.
+Every placement draws `usage.segments` — or its own list from `usage.surfaces`
+(see [Pick the parts you want](#3-pick-the-parts-you-want)) — under that
+placement's own rules: a sidebar stacks them one per row, a one-line surface
+joins and wraps them, the footer surfaces share their row with OpenCode's
+text, and each surface's padding (including `app`'s indent and clear rows) is
+read per placement. A name repeated in the list is drawn once; an unknown name
+is ignored with a warning, and a list left with no known name keeps the
+previous placements.
 
 Notes:
 
@@ -535,6 +560,7 @@ Every key, its default, and the values it accepts. All keys are optional.
 | Key | Default | Accepts |
 | --- | --- | --- |
 | `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time", "diff"]` | Any subset of those names, in any order |
+| `usage.surfaces.<surface>` | `{}` | A map of surface name → segment list; a surface left out draws `usage.segments` |
 | `usage.labels` | `"icons"` | `"icons"` or `"words"` |
 | `usage.separator` | `" │ "` | A non-empty string of up to 8 characters |
 
@@ -681,6 +707,28 @@ Copy any block into your config file as a starting point.
 }
 ```
 
+**Give each placement its own pieces** — the full line at the bottom, just
+context and speed in the sidebar footer:
+
+```json
+{
+  "surface": ["app", "sidebar.footer"],
+  "usage": {
+    "surfaces": { "sidebar.footer": ["context", "meter"] }
+  }
+}
+```
+
+**Silence one placement** — keep the line at the bottom, hide it in the
+sidebar, with an empty list:
+
+```json
+{
+  "surface": ["app", "sidebar.footer"],
+  "usage": { "surfaces": { "sidebar.footer": [] } }
+}
+```
+
 **Clear the extra rows under the bottom line:**
 
 ```json
@@ -723,8 +771,10 @@ to silence it.
 
 **A segment disappeared.**
 Segments hide themselves when they have nothing to say: no cost yet, a clean
-tree, no cache reads, no running shells. That is normal. Also check that the
-segment is still in `usage.segments`.
+tree, no cache reads, no running shells. That is normal. Also check the
+segment is still in `usage.segments`, and — when the line is placed in several
+slots — that the placement has not given itself its own list in
+`usage.surfaces`, which replaces the shared one.
 
 **The speed colour is always red.**
 Raise `colors.slow` and `colors.fast`, or turn the status colours off with
