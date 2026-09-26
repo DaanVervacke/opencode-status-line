@@ -30,7 +30,7 @@ export const SURFACES = [
 export type Surface = (typeof SURFACES)[number]
 
 /** The pieces the usage line can draw, in whatever order the config asks. */
-export const USAGE_SEGMENTS = ["context", "cache", "meter", "cost", "time"] as const
+export const USAGE_SEGMENTS = ["shells", "context", "cache", "meter", "cost", "time"] as const
 export type UsageSegment = (typeof USAGE_SEGMENTS)[number]
 
 export type CapMode = CapStyle

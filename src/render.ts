@@ -15,6 +15,8 @@ export interface Run {
   tone?: RunTone
   /** Draw this run in the muted shade of its tone (held or settled figures). */
   dim?: boolean
+  /** Clicking this run calls this; the shells count opens its list. */
+  onClick?: () => void
 }
 
 /** How the gauge is chosen; `auto` is the historical alias for `gauge`. */

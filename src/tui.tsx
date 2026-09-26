@@ -26,7 +26,6 @@
  */
 import { Plugin } from "@opencode/plugin/tui"
 import { Show, createMemo, createSignal } from "solid-js"
-import type { JSX } from "solid-js"
 import { loadConfig, rateOptions, type Config } from "./config.ts"
 import type { Display, Meter } from "./rate.ts"
 import {
@@ -45,7 +44,7 @@ import {
   tpsStats,
 } from "./rate.ts"
 import { contextBar, gaugeFor, type CapInput, type Run, type RunTone } from "./render.ts"
-import { cacheShare, compact, contextUsed, duration, money, pressureTone, type TokenRecord } from "./format.ts"
+import { cacheShare, compact, contextUsed, duration, money, pressureTone, shellsLabel, type TokenRecord } from "./format.ts"
 
 /** How often the line redraws while something is on screen. */
 const TICK_MS = 250
@@ -66,6 +65,9 @@ interface Event {
     tokens?: Tokens
   }
 }
+
+/** Where a session's shells live. */
+type ShellLocation = { directory?: string | null }
 
 export default Plugin.define({
   id: "local.opencode-status-line",
@@ -276,6 +278,7 @@ export default Plugin.define({
       tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number; write?: number } }
       model?: { id?: string; providerID?: string }
       time?: { created?: number }
+      location?: { directory?: string | null }
     }
 
     const sessionUsage = (sessionID: string): SessionUsage | undefined =>
@@ -342,6 +345,30 @@ export default Plugin.define({
       ]
     }
 
+    /** The location a session's shells live at; the session record knows best. */
+    const shellLocation = (sessionID: string): ShellLocation =>
+      sessionUsage(sessionID)?.location ?? context.location ?? context.data.location.default()
+
+    /**
+     * Shells the host is running for this session. `data.shell` holds a shell
+     * only while it executes — background shells live in a separate registry —
+     * so this reads as live activity.
+     */
+    const shellRuns = (sessionID: string): Run[] => {
+      const location = shellLocation(sessionID)
+      const running = (context.data.shell.list(location) ?? [])
+        .filter((shell) => shell.status === "running" && shell.metadata?.sessionID === sessionID)
+      return running.length > 0 ? [{ ...muted(shellsLabel(running.length)), onClick: openShells }] : []
+    }
+
+    /**
+     * Toggle the composer through the host
+     * command, whose Shell tab lists running shells and opens the host's own
+     * output viewer. Dispatch the command rather than imitating the popup, so
+     * the UI is the host's own.
+     */
+    const openShells = () => context.keymap.dispatch("session.child.first")
+
     const meterRuns = (view: Display, each: Meter): Run[] => {
       const runs = gaugeFor(capInput(view, each))
       view.readings.forEach((reading, index) => {
@@ -377,7 +404,8 @@ export default Plugin.define({
       const runs: Run[] = []
       for (const segment of config.usageSegments) {
         let part: Run[] = []
-        if (segment === "context") part = contextRuns(window.tokens, limit)
+        if (segment === "shells") part = shellRuns(sessionID)
+        else if (segment === "context") part = contextRuns(window.tokens, limit)
         else if (segment === "cache") part = cacheRuns(window.tokens)
         else if (segment === "meter") {
           const found = meters.get(sessionID)
@@ -462,10 +490,13 @@ export default Plugin.define({
        * symptom being a line that never repaints. A memo re-reads `version()`
        * (deltas and the ticker) and every repaint gets fresh readings.
        *
+       * A run with `onClick` is hoisted out of the plain text into its own
+       * `<text>`: mouse handlers live on renderables, and a `span` is not one.
+       *
        * The try/catch is the same insurance as `safely`: a bug here must dim a
        * line, not break a session.
        */
-      const parts = createMemo<JSX.Element[]>(() => {
+      const view = createMemo<{ before: Run[]; clickable?: Run; after: Run[] }>(() => {
         try {
           // The heartbeat's clock: held figures and the elapsed timer repaint
           // even while nothing is streaming.
@@ -473,21 +504,45 @@ export default Plugin.define({
           // Slots such as `prompt.footer` carry no session in their input; the
           // route knows which conversation is on screen.
           const sessionID = input?.sessionID ?? currentSession()
-          if (!sessionID) return []
+          if (!sessionID) return { before: [], after: [] }
           const runs = usageRuns(sessionID, Date.now())
-          if (runs.length === 0) return []
-          return runs.map((run) => <span fg={toneColor(run.tone, run.dim ?? false)}>{run.text}</span>)
+          const at = runs.findIndex((run) => run.onClick)
+          if (at < 0) return { before: runs, after: [] }
+          return { before: runs.slice(0, at), clickable: runs[at], after: runs.slice(at + 1) }
         } catch (error) {
           if (!warned) {
             warned = true
             console.warn("opencode-status-line: render failed", error)
           }
-          return []
+          return { before: [], after: [] }
         }
       })
+      const spans = (runs: Run[]) =>
+        runs.map((run) => <span fg={toneColor(run.tone, run.dim ?? false)}>{run.text}</span>)
+      const [hovered, setHovered] = createSignal(false)
       return (
-        <Show when={parts().length > 0}>
-          <text>{parts()}</text>
+        <Show when={view().before.length > 0 || view().after.length > 0 || view().clickable !== undefined}>
+          <box flexDirection="row">
+            <Show when={view().before.length > 0}>
+              <text wrapMode="none">{spans(view().before)}</text>
+            </Show>
+            <Show when={view().clickable}>
+              {(run) => (
+                <text
+                  wrapMode="none"
+                  onMouseOver={() => setHovered(true)}
+                  onMouseOut={() => setHovered(false)}
+                  onMouseUp={() => run()?.onClick?.()}
+                  fg={hovered() ? context.theme.text.base : toneColor(run().tone, run().dim ?? false)}
+                >
+                  {spans([run()])}
+                </text>
+              )}
+            </Show>
+            <Show when={view().after.length > 0}>
+              <text wrapMode="none">{spans(view().after)}</text>
+            </Show>
+          </box>
         </Show>
       )
     }

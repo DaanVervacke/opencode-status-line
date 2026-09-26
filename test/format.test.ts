@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { cacheShare, compact, contextUsed, duration, money, pressureTone } from "../src/format.ts"
+import { cacheShare, compact, contextUsed, duration, money, pressureTone, shellsLabel } from "../src/format.ts"
 
 describe("compact", () => {
   test("whole numbers below a thousand", () => {
@@ -58,5 +58,12 @@ describe("pressureTone", () => {
   test("thresholds are configurable", () => {
     expect(pressureTone(0.5, 0.4, 0.6)).toBe("warning")
     expect(pressureTone(0.7, 0.4, 0.6)).toBe("error")
+  })
+})
+
+describe("shellsLabel", () => {
+  test("counts with a plural", () => {
+    expect(shellsLabel(1)).toBe("1 shell")
+    expect(shellsLabel(3)).toBe("3 shells")
   })
 })

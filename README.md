@@ -19,6 +19,9 @@ configurable row.
   token count: green while there is room, yellow as it fills, red near the limit.
 - **Cache** — how much of what the model read came from cache, and the cached
   token count.
+- **Shells** — how many shell commands the session is running right now; click
+  it to toggle the composer, whose Shell tab lists them and opens the host's
+  output viewer. The segment hides itself when nothing is executing.
 - **Cost and time** — the session's spend and elapsed time.
 - **A steady line** — figures are drawn in a fixed three-character field
   (`8.3`, ` 47`, `198`), so nothing moves sideways as the numbers change.
@@ -26,9 +29,9 @@ configurable row.
   a fast burst sets the scale once and slower output never pulls it back down;
   the bar only reads full when a new high is actually being set.
 
-The pieces are `context`, `cache`, `meter`, `cost`, and `time`; `usage.segments`
-sets which appear and in what order, and a segment with nothing to say is
-skipped along with its separator. `/opencode-status-line` shows the numbers
+The pieces are `shells`, `context`, `cache`, `meter`, `cost`, and `time`;
+`usage.segments` sets which appear and in what order, and a segment with
+nothing to say is skipped along with its separator. `/opencode-status-line` shows the numbers
 behind the speed readings (rolling average, mean, p95).
 
 Only the streaming speed is estimated: OpenCode reports exact token counts at
@@ -96,7 +99,7 @@ inherit its default.
 | `colors.slow` | `20` | Yellow at or above; red below |
 | `history.samples` | `500` | Completed figures kept for the statistics |
 | `stats.windowMs` | `60000` | Rolling window for `avg` in the stats dialog |
-| `usage.segments` | `["context", "cache", "meter", "cost", "time"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
+| `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
 | `usage.separator` | `" │ "` | Drawn between segments |
 | `usage.contextWidth` | `14` | Context bar width, in cells |
 | `usage.warnAt` | `70` | Context fill turns yellow at this percentage |

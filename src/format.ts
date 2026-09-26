@@ -59,6 +59,11 @@ export function cacheShare(tokens?: TokenRecord): number | undefined {
   return (tokens?.cache?.read ?? 0) / used
 }
 
+/** `1 shell`, `3 shells` — the running-shell count on the usage line. */
+export function shellsLabel(count: number): string {
+  return `${count} shell${count === 1 ? "" : "s"}`
+}
+
 export type PressureTone = "success" | "warning" | "error"
 
 /** Green while there is room, yellow as it fills, red near the limit. */
