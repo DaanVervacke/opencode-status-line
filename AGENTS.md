@@ -33,8 +33,9 @@ reference for behaviour and every config key.
 | `src/render.ts` | Gauge and context-bar geometry, run cutting and wrapping for narrow widths. Pure. |
 | `src/format.ts` | Token / money / duration formatting. Pure. |
 | `src/diff.ts` | Uncommitted-change totals from the host's VCS status, and the diff segment's cache policy. Pure. |
+| `src/palette.ts` | The bundled colour palettes and palette/override resolution. Pure. |
 | `src/config.ts` | JSON config loader; pure except an injectable `read`. |
-| `test/*.test.ts` | One per pure module; `bun test` runs all five. |
+| `test/*.test.ts` | One per pure module; `bun test` runs all six. |
 | `tui.tsx` | Root shim re-exporting `src/tui.tsx`; see above. |
 
 Keep new logic in the pure modules so it can be tested without a terminal.
@@ -134,7 +135,10 @@ options. Invalid files or values warn and are ignored, never fatal. Adding a
 key means `Config` + `DEFAULT_CONFIG` + validation in `src/config.ts`, plus
 `rateOptions` if it is maths, plus the README table — the README is the key
 reference, so keep it in sync. `test/config.test.ts` injects a fake `read`;
-never touch disk from a test.
+never touch disk from a test. `colors.palette` resolves through
+`src/palette.ts`: a family name follows `context.themeMode` (the host's
+resolved `dark`/`light`, never `system`), and a chosen palette's `muted` ink
+is where held figures and bar tracks go.
 
 ## Commands
 

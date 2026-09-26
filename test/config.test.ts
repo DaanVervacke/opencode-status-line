@@ -9,6 +9,7 @@ import {
   sharesHostRow,
   stackFor,
 } from "../src/config.ts"
+import { HOST_PALETTE } from "../src/palette.ts"
 
 const HOME = "/home/test"
 const DIR = "/work/project"
@@ -87,6 +88,31 @@ describe("validation", () => {
     expect(config.fastTps).toBe(DEFAULT_CONFIG.fastTps)
     expect(config.slowTps).toBe(DEFAULT_CONFIG.slowTps)
     expect(warnings.some((warning) => warning.includes("above"))).toBe(true)
+  })
+
+  test("colors.palette takes host, a variant or a family", () => {
+    expect(read({}).config.palette).toBe(HOST_PALETTE)
+    expect(read({}).config.toneOverrides).toEqual({})
+    expect(
+      read({ [PROJECT]: JSON.stringify({ colors: { palette: "rose-pine-moon" } }) }).config.palette,
+    ).toBe("rose-pine-moon")
+    expect(read({ [PROJECT]: JSON.stringify({ colors: { palette: "gruvbox" } }) }).config.palette).toBe("gruvbox")
+    expect(read({ [PROJECT]: JSON.stringify({ colors: { palette: "host" } }) }).config.palette).toBe("host")
+    const { config, warnings } = read({ [PROJECT]: JSON.stringify({ colors: { palette: "catpuccin" } }) })
+    expect(config.palette).toBe(HOST_PALETTE)
+    expect(warnings.some((warning) => warning.includes("colors.palette"))).toBe(true)
+  })
+
+  test("colors.overrides recolours tones, merges across sources and validates", () => {
+    const { config, warnings } = read({
+      [GLOBAL]: JSON.stringify({ colors: { overrides: { success: "#50fa7b", muted: "#6272a4" } } }),
+      [PROJECT]: JSON.stringify({ colors: { overrides: { success: "#00ff00", nope: "#000000", error: "red" } } }),
+    })
+    expect(config.toneOverrides).toEqual({ success: "#00ff00", muted: "#6272a4" })
+    expect(warnings.some((warning) => warning.includes("colors.overrides.nope"))).toBe(true)
+    expect(warnings.some((warning) => warning.includes("colors.overrides.error"))).toBe(true)
+    // The defaults are never touched: a later source adds to its own copy.
+    expect(DEFAULT_CONFIG.toneOverrides).toEqual({})
   })
 
   test("calibration bounds must stay ordered", () => {

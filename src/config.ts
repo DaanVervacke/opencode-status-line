@@ -15,6 +15,14 @@
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import {
+  HOST_PALETTE,
+  isHexColor,
+  isPaletteChoice,
+  PALETTE_FAMILIES,
+  TONE_KEYS,
+  type ToneOverrides,
+} from "./palette.ts"
 import { DEFAULT_RATE, type LabelStyle, type LiveReading, type RateOptions } from "./rate.ts"
 import type { CapStyle } from "./render.ts"
 
@@ -107,6 +115,10 @@ export interface Config {
   gaugeWidth: number
   gaugeFloor: number
   colors: boolean
+  /** The palette the line draws with: `host`, a bundled variant or a family. */
+  palette: string
+  /** Per-tone hex recolours, over the palette or the host theme's tokens. */
+  toneOverrides: ToneOverrides
   fastTps: number
   slowTps: number
   historySamples: number
@@ -146,6 +158,8 @@ export const DEFAULT_CONFIG: Config = {
   gaugeWidth: 11,
   gaugeFloor: 40,
   colors: true,
+  palette: HOST_PALETTE,
+  toneOverrides: {},
   fastTps: 50,
   slowTps: 20,
   historySamples: DEFAULT_RATE.historySamples,
@@ -365,6 +379,35 @@ function apply(draft: Draft, where: string, raw: unknown): void {
     bool(draft, where, "colors.enabled", colors.enabled, (value) => (config.colors = value))
     num(draft, where, "colors.fast", colors.fast, 1, 10_000, (value) => (config.fastTps = value))
     num(draft, where, "colors.slow", colors.slow, 0, 10_000, (value) => (config.slowTps = value))
+    if ("palette" in colors) {
+      const value = colors.palette
+      if (typeof value === "string" && isPaletteChoice(value)) {
+        config.palette = value
+      } else {
+        draft.warnings.push(
+          `${where}: colors.palette must be "host" or a bundled palette — using ${config.palette} (families: ${PALETTE_FAMILIES.join(", ")})`,
+        )
+      }
+    }
+    if ("overrides" in colors) {
+      const value = colors.overrides
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        draft.warnings.push(`${where}: colors.overrides must be an object of tone colours — ignored`)
+      } else {
+        for (const [tone, hex] of Object.entries(value)) {
+          if (!(TONE_KEYS as readonly string[]).includes(tone)) {
+            draft.warnings.push(`${where}: colors.overrides.${tone} is not a tone (${TONE_KEYS.join(", ")}) — ignored`)
+            continue
+          }
+          if (typeof hex !== "string" || !isHexColor(hex)) {
+            draft.warnings.push(`${where}: colors.overrides.${tone} must be a #rrggbb colour — kept the previous value`)
+            continue
+          }
+          // A fresh object per write: the draft's overrides start as DEFAULT_CONFIG's.
+          config.toneOverrides = { ...config.toneOverrides, [tone]: hex }
+        }
+      }
+    }
   }
 
   const padding = group(draft, where, root, "padding")

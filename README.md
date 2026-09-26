@@ -40,6 +40,10 @@ one configurable row, wrapping to more rows when the window is narrow.
 - **Labels** — the fixed words are glyphs by default: `↯` for the live reading,
   `μ` for the average, `⧉` for cache. `usage.labels: "words"` spells `avg` and
   `cache` back out.
+- **Themes** — the line follows the OpenCode theme's own colours by default;
+  `colors.palette` can instead dress it in a bundled palette — Catppuccin,
+  Dracula, Gruvbox, Nord, Rosé Pine or Tokyo Night — and `colors.overrides`
+  can recolour single tones. See [Themes](#themes).
 - **Sidebar-aware** — a `sidebar.*` surface stacks the segments, one per row,
   each cut to the sidebar's width with an `…`; the footer surfaces join the
   same segments across one line.
@@ -133,6 +137,8 @@ inherit its default.
 | `colors.enabled` | `true` | Speed colours |
 | `colors.fast` | `50` | Green at or above |
 | `colors.slow` | `20` | Yellow at or above; red below |
+| `colors.palette` | `"host"` | The colour palette the line draws with: `host` follows the OpenCode theme's tokens, or a bundled palette — a variant like `catppuccin-mocha`, or a family like `catppuccin` that follows the host's light/dark mode. See [Themes](#themes) |
+| `colors.overrides` | `{}` | Per-tone `#rrggbb` recolours — `text`, `muted`, `success`, `warning` or `error` — layered over the palette, or over the host tokens when no palette is chosen. Held and settled figures wear `muted` |
 | `history.samples` | `500` | Completed figures kept for the statistics |
 | `stats.windowMs` | `60000` | Rolling window for `avg` in the stats dialog |
 | `usage.segments` | `["shells", "context", "cache", "meter", "cost", "time", "diff"]` | Which pieces the line draws, in order; `meter` is the gauge and readings |
@@ -143,6 +149,41 @@ inherit its default.
 | `usage.dangerAt` | `90` | Context fill turns red at this percentage |
 | `diff.refreshMs` | `5000` | How often the diff counter re-asks the host's VCS registry, in milliseconds (500–600000); a closing turn refreshes it immediately |
 
+## Themes
+
+By default the line draws in the OpenCode theme's own tokens
+(`colors.palette: "host"`), so switching the TUI theme restyles the line too.
+OpenCode's own theme picker ships several of the palettes below; choosing one
+here instead dresses the line in the palette independently of the TUI theme.
+`colors.palette` can name one of the bundled palettes — a variant, or a family
+that follows the host's active mode (`"catppuccin"` is `catppuccin-mocha` in
+dark mode and `catppuccin-latte` in light):
+
+| Family | Variants |
+| --- | --- |
+| Catppuccin | `catppuccin-mocha`, `catppuccin-macchiato`, `catppuccin-frappe`, `catppuccin-latte` |
+| Dracula | `dracula`, `alucard` |
+| Gruvbox | `gruvbox-dark`, `gruvbox-light` |
+| Nord | `nord` |
+| Rosé Pine | `rose-pine`, `rose-pine-moon`, `rose-pine-dawn` |
+| Tokyo Night | `tokyonight-night`, `tokyonight-storm`, `tokyonight-moon`, `tokyonight-day` |
+
+```json
+{
+  "colors": {
+    "palette": "catppuccin-mocha",
+    "overrides": { "success": "#a6e3a1", "muted": "#7f849c" }
+  }
+}
+```
+
+`colors.overrides` layers single `#rrggbb` colours over the chosen palette —
+or over the host tokens when no palette is chosen. The inks are `text` (body),
+`muted` (labels, separators, bar tracks, held and settled figures) and the
+three status colours `success`, `warning` and `error`, which colour the speed
+readings, the context bar and the diff counter. Every bundled hex is the
+theme's own published value, carrying only the inks the line draws with.
+
 ## Commands
 
 - `/opencode-status-line` (alias `/tps`, also in the palette) — a dialog with the
@@ -151,17 +192,17 @@ inherit its default.
 ## Development
 
 ```
-bun test                    # all five test files — no OpenCode needed
+bun test                    # all six test files — no OpenCode needed
 bun test test/rate.test.ts  # one module
 ```
 
 `src/tui.tsx` is the plugin entry; `src/rate.ts` is the speed maths,
 `src/render.ts` the gauge and context-bar geometry, `src/format.ts` the
-usage-line formatting, `src/diff.ts` the uncommitted-change counter, and
-`src/config.ts` the JSON loader. The root `tui.tsx`
-re-exports the entry for OpenCode's directory plugin resolution — it exists for
-checkouts loaded from `cli.json`; npm consumers reach the entry through the
-exports map instead.
+usage-line formatting, `src/diff.ts` the uncommitted-change counter,
+`src/palette.ts` the bundled colour palettes, and `src/config.ts` the JSON
+loader. The root `tui.tsx` re-exports the entry for OpenCode's directory plugin
+resolution — it exists for checkouts loaded from `cli.json`; npm consumers
+reach the entry through the exports map instead.
 
 ## Publishing
 

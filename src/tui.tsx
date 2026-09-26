@@ -34,6 +34,7 @@ import { Plugin } from "@opencode/plugin/tui"
 import { For, Show, createMemo, createSignal } from "solid-js"
 import { contextBarWidth, loadConfig, rateOptions, resolvedPadding, sharesHostRow, stackFor, type Config } from "./config.ts"
 import { diffDue, diffKey, diffParts, diffTotals, type DiffReading, type DiffStat, type StatusFile } from "./diff.ts"
+import { HOST_PALETTE, inkColor, resolvePalette } from "./palette.ts"
 import type { Display, Meter } from "./rate.ts"
 import {
   active,
@@ -118,6 +119,15 @@ export default Plugin.define({
     const config: Config = loaded.config
     const opts = rateOptions(config)
     const labels = USAGE_LABELS[config.labels]
+    /**
+     * The palette the line wears, when `colors.palette` picks one instead of
+     * the host's tokens. A family name follows the host's resolved mode;
+     * `context.themeMode` is that mode (`dark`/`light`), never `system`.
+     */
+    const palette =
+      config.palette === HOST_PALETTE
+        ? undefined
+        : resolvePalette(config.palette, context.themeMode, config.toneOverrides)
     const contextWidth = contextBarWidth(config)
     const stack = stackFor(config.surface)
     const padding = resolvedPadding(config)
@@ -329,15 +339,13 @@ export default Plugin.define({
       context.data.on("session.model.selected", safely(() => bump())),
     ]
 
-    /** A run's colour: the tone at full strength while live, muted once settled. */
-    const toneColor = (tone: RunTone | undefined, muted: boolean): string | undefined => {
-      if (!config.colors || tone === undefined) {
-        return muted ? context.theme.text.muted : context.theme.text.base
-      }
-      if (tone === "muted") return context.theme.text.muted
-      const states = context.theme.text.feedback[tone]
-      return muted ? (states.muted ?? states.base) : states.base
-    }
+    /**
+     * A run's colour: the tone at full strength while live, muted once
+     * settled. With `colors.enabled` off, tones are ignored and the line
+     * takes the body and muted inks alone.
+     */
+    const toneColor = (tone: RunTone | undefined, muted: boolean): string | undefined =>
+      inkColor(config.colors ? tone : undefined, muted, palette, config.toneOverrides, context.theme.text)
 
     /** Settings for the gauge: the session's high-water mark sets its scale. */
     const capInput = (view: Display, each: Meter): CapInput => ({
@@ -768,7 +776,7 @@ export default Plugin.define({
                         onMouseOver={() => setHovered(true)}
                         onMouseOut={() => setHovered(false)}
                         onMouseUp={() => run()?.onClick?.()}
-                        fg={hovered() ? context.theme.text.base : toneColor(run().tone, run().dim ?? false)}
+                        fg={hovered() ? toneColor(undefined, false) : toneColor(run().tone, run().dim ?? false)}
                       >
                         {spans([run()])}
                       </text>
