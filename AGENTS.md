@@ -143,6 +143,12 @@ Keep new logic in the pure modules so it can be tested without a terminal.
   `app`, the composer top and the sidebars stretch to the host's width and
   need no basis. Footers and sidebars are placed by the host and take no
   padding by default.
+- The box also pins its drawn height as its `minHeight` (rows plus padding,
+  which is part of the border box). The host mounts `app` as the last child of
+  a column beside a transcript that often overflows it, and Yoga's default
+  shrink then squashed the wrapped box below its content: every row landed on
+  the same line, drawn over one another. The floor makes the transcript absorb
+  the shrink instead; wrapping stays stacked and the padding rows survive.
 
 ## Config
 

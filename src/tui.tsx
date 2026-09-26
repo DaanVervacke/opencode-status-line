@@ -770,6 +770,13 @@ export default Plugin.define({
             // for good. `app` and the composer top stretch to the window and
             // need no basis.
             flexBasis={sharesRow ? view().basis : undefined}
+            // The box must never be shrunk below its drawn height. The host
+            // puts it in a column that can overflow — a transcript taller than
+            // the window, most of the time — and Yoga's shrink then squashes a
+            // wrapped box into itself, drawing every row on the same line.
+            // `minHeight` is the content plus the padding, which is part of
+            // the border box.
+            minHeight={view().lines.length + padding.top + padding.bottom}
             paddingLeft={padding.left}
             paddingRight={padding.right}
             paddingTop={padding.top}
