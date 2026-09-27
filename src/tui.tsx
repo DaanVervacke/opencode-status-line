@@ -449,8 +449,13 @@ export default Plugin.define({
      * so this reads as live activity.
      */
     const shellRuns = (sessionID: string): Run[] => {
+      // The shell registry keys on a concrete directory; a session record may
+      // not carry one, and `undefined` asks the host for the current location.
       const location = sessionLocation(sessionID)
-      const running = (context.data.shell.list(location) ?? [])
+      const ref = location.directory
+        ? { directory: location.directory, workspaceID: location.workspaceID }
+        : undefined
+      const running = (context.data.shell.list(ref) ?? [])
         .filter((shell) => shell.status === "running" && shell.metadata?.sessionID === sessionID)
       return running.length > 0 ? [{ ...muted(shellsLabel(running.length)), onClick: openShells }] : []
     }

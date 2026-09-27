@@ -7,10 +7,12 @@ introduction; `MANUAL.md` is the exhaustive user reference.
 ## What is unusual here
 
 - **No build step.** `package.json` publishes the source (`./tui` →
-  `src/tui.tsx`) and OpenCode transpiles it on load; don't add a bundler or
-  lockfile. Nothing needs installing to work on the plugin — `bun test` (or
-  `bun test test/rate.test.ts` for one module) is the whole verification, plus
-  `npm run check:pack` when the package surface changes. CI is
+  `src/tui.tsx`) and OpenCode transpiles it on load; don't add a bundler, and
+  keep `src/` the only shipped surface — `bun.lock` exists solely so the
+  typecheck job resolves the host and Solid types reproducibly. `bun test` (or
+  `bun test test/rate.test.ts` for one module) needs no install;
+  `bun install && bun run typecheck` checks types, including `src/tui.tsx`,
+  which no test imports; `npm run check:pack` checks the package surface. CI is
   `.github/workflows/ci.yml`; releases are `.github/workflows/publish.yml`, not
   a laptop. `main` takes pull requests only: green CI plus one approving
   review (the maintainer bypasses for their own work).
