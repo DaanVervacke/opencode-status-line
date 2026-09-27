@@ -2,7 +2,8 @@ name: Publish
 
 # One action cuts a release: push the `v*` tag that `npm version` creates, and
 # this workflow publishes the tagged version to npm and creates the GitHub
-# Release from the version's CHANGELOG.md section. Creating the Release by hand
+# Release from the version's CHANGELOG.md section. The tagged commit must be on
+# `main`, so a tag cut on a branch cannot publish. Creating the Release by hand
 # works too — every step skips work that already exists, so the tag and the
 # Release can never publish the same version twice.
 #
@@ -41,6 +42,22 @@ jobs:
     steps:
       - name: Check out the released tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history: the tag's commit is traced back to main
+
+      # `npm version` tags wherever you happen to be; a tag cut on a branch or
+      # a PR head must never publish. Requiring the tagged commit to be
+      # reachable from `main` proves review and CI ran on what ships. This
+      # only reads history — tags stay entirely a maintainer decision.
+      - name: Check the tagged commit is on main
+        run: |
+          git fetch --no-tags origin main "+refs/tags/$TAG:refs/tags/$TAG"
+          commit="$(git rev-parse "$TAG^{commit}")"
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::Tag $TAG points at $commit, which is not on main — land the release on main, then re-tag."
+            exit 1
+          fi
+          echo "$TAG is on main at $commit"
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

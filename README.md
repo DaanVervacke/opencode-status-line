@@ -128,11 +128,12 @@ actually packed.
 Publishing runs in CI, not from a laptop: pushing a `v*` version tag — what
 `npm version` creates — triggers `.github/workflows/publish.yml`, which
 publishes with npm trusted publishing (OIDC) and creates the GitHub Release
-with generated notes in the same run; creating the Release by hand works too.
-There is no repository secret, provenance is attached automatically, the tag
-must match `package.json`, and everything that already exists (a published
-version, a Release) is skipped rather than failed, so re-runs and the
-hand-published bootstrap release are safe. Maintainers: see [RELEASING.md][releasing].
+from the version's changelog section in the same run; creating the Release by
+hand works too. There is no repository secret, provenance is attached
+automatically, the tagged commit must be on `main` and the tag must match
+`package.json`, and everything that already exists (a published version, a
+Release) is skipped rather than failed, so re-runs and the hand-published
+bootstrap release are safe. Maintainers: see [RELEASING.md][releasing].
 
 [manual]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md
 [settings]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#10-all-settings-at-a-glance

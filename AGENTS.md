@@ -186,12 +186,13 @@ runs it on every pull request. `.github/workflows/publish.yml` runs on a pushed
 `v*` tag and on a published Release: it publishes with npm trusted publishing
 (OIDC, `id-token: write`) — no `NPM_TOKEN`, provenance automatic — and creates
 the GitHub Release from the version's `CHANGELOG.md` section, checked before
-publishing. Every step checks instead of assuming (tag against `package.json`,
-changelog section, version on the registry, existing Release), so
-both events are safe and a release is just `npm version` + `git push
---follow-tags`. The one-time npm setup (hand-published bootstrap,
-trusted-publisher fields) lives in `RELEASING.md`. Don't add a publish token
-unless OIDC is abandoned.
+publishing. Every step checks instead of assuming (the tagged commit on `main`,
+tag against `package.json`, changelog section, version on the registry,
+existing Release), so both events are safe and a release is just `npm version`
+plus `git push --follow-tags`. Tags are created only by hand — nothing tags on
+merge — the gate just refuses a tag that points off `main`. The one-time npm
+setup (hand-published bootstrap, trusted-publisher fields) lives in
+`RELEASING.md`. Don't add a publish token unless OIDC is abandoned.
 
 The package is published as source, so `files` in `package.json` carries `src/`
 wholesale — every module `src/tui.tsx` imports must be under it, or installs
