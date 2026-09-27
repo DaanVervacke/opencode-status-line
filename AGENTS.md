@@ -176,13 +176,15 @@ merges across config sources like `padding`.
 
 `npm run check:pack` inspects the tarball — every tracked `src/` file packed,
 nothing untracked in, no root shim, every `exports` target present — and CI
-runs it on every pull request. `.github/workflows/publish.yml` publishes on a
-published GitHub Release, using npm trusted publishing (OIDC, `id-token:
-write`): no `NPM_TOKEN`, provenance automatic. It checks the tag against
-`package.json` and skips a version already on the registry. Releases are cut
-with `npm version` + `gh release create --generate-notes`; the one-time npm
-setup (hand-published bootstrap, trusted-publisher fields) lives in
-`RELEASING.md`. Don't add a publish token unless OIDC is abandoned.
+runs it on every pull request. `.github/workflows/publish.yml` runs on a pushed
+`v*` tag and on a published Release: it publishes with npm trusted publishing
+(OIDC, `id-token: write`) — no `NPM_TOKEN`, provenance automatic — and creates
+the GitHub Release with generated notes. Every step checks instead of assuming
+(tag against `package.json`, version on the registry, existing Release), so
+both events are safe and a release is just `npm version` + `git push
+--follow-tags`. The one-time npm setup (hand-published bootstrap,
+trusted-publisher fields) lives in `RELEASING.md`. Don't add a publish token
+unless OIDC is abandoned.
 
 The package is published as source, so `files` in `package.json` carries `src/`
 wholesale — every module `src/tui.tsx` imports must be under it, or installs
