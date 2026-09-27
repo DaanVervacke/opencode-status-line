@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { join } from "node:path"
 import {
   contextBarWidth,
   DEFAULT_CONFIG,
@@ -12,10 +13,12 @@ import {
 } from "../src/config.ts"
 import { HOST_PALETTE } from "../src/palette.ts"
 
-const HOME = "/home/test"
-const DIR = "/work/project"
-const GLOBAL = "/home/test/.config/opencode/opencode-status-line.json"
-const PROJECT = "/work/project/.opencode-status-line.json"
+// The loader builds these paths with `join`, so the fixtures must too — a
+// literal "/home/test/..." key misses the fake `read` map on Windows.
+const HOME = join("/", "home", "test")
+const DIR = join("/", "work", "project")
+const GLOBAL = join(HOME, ".config", "opencode", "opencode-status-line.json")
+const PROJECT = join(DIR, ".opencode-status-line.json")
 
 const loader = (files: Record<string, string>) => (path: string) => files[path]
 const read = (files: Record<string, string>, directory = DIR, options?: unknown) =>
@@ -48,13 +51,14 @@ describe("precedence", () => {
   })
 
   test("XDG_CONFIG_HOME moves the global file", () => {
-    const xdg = "/xdg"
+    const xdg = join("/", "xdg")
+    const moved = join(xdg, "opencode", "opencode-status-line.json")
     const { config, files } = loadConfig(DIR, undefined, {
       home: HOME,
       env: { XDG_CONFIG_HOME: xdg },
-      read: loader({ [`${xdg}/opencode/opencode-status-line.json`]: JSON.stringify({ window: { ms: 1_234 } }) }),
+      read: loader({ [moved]: JSON.stringify({ window: { ms: 1_234 } }) }),
     })
-    expect(files).toEqual([`${xdg}/opencode/opencode-status-line.json`])
+    expect(files).toEqual([moved])
     expect(config.windowMs).toBe(1_234)
   })
 })

@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Keep the SHA-pinned actions current; Dependabot rewrites the pin and its
+  # version comment together.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore"
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+
+  # Runtime and peer dependencies. @opencode/plugin deliberately follows the
+  # host ("latest"), so Dependabot only watches the rendering peers.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore"
+    groups:
+      dependencies:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "@opencode/plugin"
+    open-pull-requests-limit: 3

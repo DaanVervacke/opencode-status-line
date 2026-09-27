@@ -1,0 +1,58 @@
+name: Bug report
+description: Something the line does that it should not, or fails to do.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A screenshot of the line and the settings in
+        play solve most mysteries; `/opencode-status-line` (alias `/tps`)
+        opens the stats dialog with the numbers behind the meter.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did the line show, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can it be reproduced?
+      description: The smallest set of steps that shows the problem.
+      placeholder: |
+        1. Configure `usage.segments` as ...
+        2. Start a turn ...
+        3. The line shows ...
+    validations:
+      required: true
+  - type: input
+    id: opencode-version
+    attributes:
+      label: OpenCode version
+      description: The output of `opencode --version`.
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: opencode-status-line version
+      description: The version in `cli.json`, or the commit a checkout was loaded from.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and terminal
+      placeholder: e.g. macOS 15, iTerm2 — Windows 11, Windows Terminal — Ubuntu 24.04, kitty
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: The contents of `opencode-status-line.json` and `.opencode-status-line.json`, if you have them.
+      render: json
+    validations:
+      required: false

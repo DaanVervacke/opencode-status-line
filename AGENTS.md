@@ -9,7 +9,10 @@ introduction; `MANUAL.md` is the exhaustive user reference.
 - **No build step.** `package.json` publishes the source (`./tui` →
   `src/tui.tsx`) and OpenCode transpiles it on load; don't add a bundler or
   lockfile. Nothing needs installing to work on the plugin — `bun test` (or
-  `bun test test/rate.test.ts` for one module) is the whole verification.
+  `bun test test/rate.test.ts` for one module) is the whole verification, plus
+  `npm run check:pack` when the package surface changes. CI is
+  `.github/workflows/ci.yml`; releases are `.github/workflows/publish.yml`, not
+  a laptop.
 - **`src/tui.tsx` is the plugin entry**, loaded straight from this checkout —
   the live host's `~/.config/opencode/cli.json` lists the directory. OpenCode
   transpiles the TSX on load and hot-reloads on save, so a broken save shows up
@@ -171,10 +174,22 @@ merges across config sources like `padding`.
 
 ## Publishing
 
-`npm pack --dry-run` inspects the tarball; `npm publish` ships it. The package
-is published as source, so `files` in `package.json` carries `src/` wholesale —
-every module `src/tui.tsx` imports must be under it, or installs break. The
-root shim stays out of the tarball; npm resolution goes through `exports`.
-`@opencode/plugin` is the dependency; `@opentui/core`, `@opentui/solid`, and
-`solid-js` are peers OpenCode provides. The plugin is CLI-only, so consumers
-add the package name to `cli.json`, never `opencode.json`.
+`npm run check:pack` inspects the tarball — every tracked `src/` file packed,
+nothing untracked in, no root shim, every `exports` target present — and CI
+runs it on every pull request. `.github/workflows/publish.yml` publishes on a
+published GitHub Release, using npm trusted publishing (OIDC, `id-token:
+write`): no `NPM_TOKEN`, provenance automatic. It checks the tag against
+`package.json` and skips a version already on the registry. Releases are cut
+with `npm version` + `gh release create --generate-notes`; the one-time npm
+setup (hand-published bootstrap, trusted-publisher fields) lives in
+`RELEASING.md`. Don't add a publish token unless OIDC is abandoned.
+
+The package is published as source, so `files` in `package.json` carries `src/`
+wholesale — every module `src/tui.tsx` imports must be under it, or installs
+break. The root shim stays out of the tarball; npm resolution goes through
+`exports`. `@opencode/plugin` is the dependency; `@opentui/core`,
+`@opentui/solid`, and `solid-js` are peers OpenCode provides. The plugin is
+CLI-only, so consumers add the package name to `cli.json`, never
+`opencode.json`. README links to files outside the tarball (`MANUAL.md`,
+`CONTRIBUTING.md`, `RELEASING.md`) must be absolute GitHub URLs — npm renders
+the README with none of the repository's files around it.

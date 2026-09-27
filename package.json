@@ -27,8 +27,14 @@
     "src"
   ],
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "check:pack": "node scripts/check-pack.mjs",
+    "prepublishOnly": "bun test && node scripts/check-pack.mjs"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "bun@1.3.14",
   "dependencies": {
     "@opencode/plugin": "latest"
   },

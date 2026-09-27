@@ -1,5 +1,9 @@
 # opencode-status-line
 
+[![CI](https://github.com/rashidrazak/opencode-status-line/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rashidrazak/opencode-status-line/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/opencode-status-line)](https://www.npmjs.com/package/opencode-status-line)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rashidrazak/opencode-status-line/blob/main/LICENSE)
+
 A live status line for [OpenCode](https://opencode.ai) v2's terminal UI —
 context window, cache, streaming speed, cost, elapsed time and uncommitted
 changes in one configurable row.
@@ -77,9 +81,9 @@ line.
 
 ## Full manual
 
-The [customization manual](MANUAL.md) is the complete reference:
+The [customization manual][manual] is the complete reference:
 
-- [every setting, with its default and allowed values](MANUAL.md#10-all-settings-at-a-glance)
+- [every setting, with its default and allowed values][settings]
 - choosing and ordering the segments, per placement if you like
 - placing the line in one slot or several at once, and padding it
 - understanding and tuning the speed meter
@@ -90,8 +94,9 @@ The [customization manual](MANUAL.md) is the complete reference:
 ## Development
 
 ```
-bun test                    # all six test files — no OpenCode needed
+bun test                    # the whole suite — no OpenCode needed
 bun test test/rate.test.ts  # one module
+npm run check:pack          # every module the entry imports is in the tarball
 ```
 
 `src/tui.tsx` is the plugin entry; `src/rate.ts` is the speed maths,
@@ -102,17 +107,29 @@ loader. The root `tui.tsx` re-exports the entry for OpenCode's directory plugin
 resolution — it exists for checkouts loaded from `cli.json`; npm consumers
 reach the entry through the exports map instead.
 
+CI runs the suite on Linux, macOS and Windows for every pull request, alongside
+a transpile of the entry and the tarball check. Contributions are welcome —
+[CONTRIBUTING.md][contributing] has the workflow, and `AGENTS.md` documents the
+host-API traps behind the entry.
+
 ## Publishing
 
 The package ships source, not a bundle — OpenCode transpiles the TSX on load,
-so there is nothing to build before publishing:
+so there is nothing to build. `package.json` exposes `./tui` → `src/tui.tsx`
+and its `files` allowlist carries the whole of `src/`, so the tarball holds the
+entry and every module it imports. `@opencode/plugin` is a dependency; the
+rendering peers (`@opentui/core`, `@opentui/solid`, `solid-js`) come from
+OpenCode. `npm run check:pack` verifies every module the entry imports is
+actually packed.
 
-```
-npm pack --dry-run     # inspect the tarball
-npm publish
-```
+Publishing runs in CI, not from a laptop: publishing a GitHub Release triggers
+`.github/workflows/publish.yml`, which publishes with npm trusted publishing
+(OIDC) — no repository secret, and a provenance attestation is attached. The
+release tag must match `package.json`, and a version already on the registry is
+skipped rather than failed, so the workflow is safe to re-run and safe to point
+at the hand-published bootstrap release. Maintainers: see [RELEASING.md][releasing].
 
-`package.json` exposes `./tui` → `src/tui.tsx` and its `files` allowlist
-carries the whole of `src/`, so the tarball holds the entry and every module it
-imports. `@opencode/plugin` is a dependency; the rendering peers
-(`@opentui/core`, `@opentui/solid`, `solid-js`) come from OpenCode.
+[manual]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md
+[settings]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#10-all-settings-at-a-glance
+[contributing]: https://github.com/rashidrazak/opencode-status-line/blob/main/CONTRIBUTING.md
+[releasing]: https://github.com/rashidrazak/opencode-status-line/blob/main/RELEASING.md
