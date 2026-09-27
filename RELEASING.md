@@ -6,6 +6,10 @@ npm and creates the GitHub Release from the version's `CHANGELOG.md` section,
 in one run. Authentication is npm **trusted publishing** (OIDC) — no `NPM_TOKEN`
 secret exists, and npm attaches a provenance attestation automatically.
 
+Tags are cut only when a maintainer decides to release: merging a pull request
+never tags anything, and no workflow creates a tag. The pipeline only refuses a
+tag whose commit is not on `main`, so a tag cut on a branch cannot publish.
+
 ## One-time npm setup
 
 npm only offers its trusted-publisher settings page once the package exists, so
@@ -74,7 +78,8 @@ git push origin main --follow-tags
 
 That is the whole release. Pushing the tag triggers `publish.yml`, which:
 
-1. checks out the tag and verifies it matches `package.json`;
+1. checks that the tagged commit is on `main` — a tag cut on a branch cannot
+   publish — and that it matches `package.json`;
 2. verifies `CHANGELOG.md` has a non-empty section for the version — its body
    becomes the Release notes;
 3. runs the test suite;
@@ -106,6 +111,9 @@ gh release view "v$(node -p "require('./package.json').version")"
   not validated until a publish uses it.
 - **Wrong version**: the tag and `package.json` disagree; the check runs before
   anything is uploaded.
+- **Tag not on `main`**: the tagged commit is not part of `main`'s history —
+  the tag was cut on a branch, a PR head or a local commit. Land the release on
+  `main`, delete the stray tag, and re-tag the merge commit.
 - **Missing changelog section**: `node scripts/changelog-section.mjs <version>`
   prints the body or names what is missing. The release fails before npm is
   touched, so the registry stays clean.
