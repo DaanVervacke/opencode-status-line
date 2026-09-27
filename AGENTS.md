@@ -12,7 +12,8 @@ introduction; `MANUAL.md` is the exhaustive user reference.
   `bun test test/rate.test.ts` for one module) is the whole verification, plus
   `npm run check:pack` when the package surface changes. CI is
   `.github/workflows/ci.yml`; releases are `.github/workflows/publish.yml`, not
-  a laptop.
+  a laptop. `main` takes pull requests only: green CI plus one approving
+  review (the maintainer bypasses for their own work).
 - **`src/tui.tsx` is the plugin entry**, loaded straight from this checkout —
   the live host's `~/.config/opencode/cli.json` lists the directory. OpenCode
   transpiles the TSX on load and hot-reloads on save, so a broken save shows up

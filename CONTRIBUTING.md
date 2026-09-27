@@ -54,25 +54,58 @@ the TSX on load and reloads the plugin when a file it imports is saved:
 - `npm run check:pack` must stay green: every module the entry imports has to
   be packed, and the package must not grow a build step or a lockfile.
 
-### Style
+### Code and comments
 
-Commits follow the existing conventional style — `feat:`, `fix:`, `docs:`,
-`chore:`, `ci:` — with a lower-case summary line. Keep a pull request to one
-idea. Comments explain the "why" the way the surrounding files do: they are
-the project's memory of decisions tried and reverted, so keep new ones equally
-honest and delete any the change makes false.
+Keep a change focused on one idea, and avoid broad refactors unless that is the
+point of the pull request. Comments explain the "why" the way the surrounding
+files do: they are the project's memory of decisions tried and reverted, so
+keep new ones equally honest and delete any the change makes false.
+
+## Commit messages
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/):
+`<type>(<scope>): <subject>`, for example
+`feat(config): let the cache segment be hidden`.
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`,
+`ci`, `chore`, `revert`. Pick the type that describes the change, not the file
+touched; `feat` and `fix` are for user-visible behaviour.
+
+A scope names the area when the change sits in one — `config`, `rate`,
+`render`, `format`, `diff`, `palette`, `tui`, `tests`, `docs`, `release`,
+`deps`, `ci` — and is omitted for cross-cutting changes. The history mostly
+goes without one, so use it only where it adds signal.
+
+- Write the subject in the imperative mood (`add`, not `added`), lowercase
+  after the colon, with no trailing period.
+- Use a body when the reason is not obvious: what the change does and why,
+  wrapped like the surrounding history. This is where a decision tried and
+  reverted is recorded, so the body is often the valuable part.
+- Mark a breaking change with `!` after the type or scope, plus a
+  `BREAKING CHANGE:` footer saying what breaks and how to migrate.
 
 ## Pull requests
 
-1. Fork the repository and branch from `main`.
-2. Make the change, run `bun test` and `npm run check:pack`.
-3. Open the pull request — the template asks what changed and how it was
-   checked.
-4. CI must pass: the suite on Linux, macOS and Windows, a transpile of
-   `src/tui.tsx`, and the tarball check. A maintainer reviews and merges.
+- Keep the pull request to one problem or feature.
+- Add or update tests for behaviour changes, and the docs above where the
+  change is user-visible.
+- Do not include secrets, credentials, real session transcripts, or config
+  files containing personal paths.
+- If the change touches `src/tui.tsx`, load it in a real OpenCode session and
+  say what you saw; no test can cover the event wiring.
 
-If the change touches `src/tui.tsx`, load it in a real OpenCode session and say
-what you saw; no test can cover the event wiring.
+Before opening the pull request:
+
+```sh
+bun test
+npm run check:pack
+git diff --check
+```
+
+CI must pass — the suite on Linux, macOS and Windows, a transpile of
+`src/tui.tsx`, and the tarball check — and `main` needs one approving review
+from a maintainer before merge. A new push dismisses an existing approval, so
+ask for a re-review once you have addressed the feedback.
 
 ## Releasing
 
