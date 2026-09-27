@@ -96,6 +96,8 @@ The [customization manual][manual] is the complete reference:
 ```
 bun test                    # the whole suite — no OpenCode needed
 bun test test/rate.test.ts  # one module
+bun install                 # once, for the typechecker
+bun run typecheck           # src/, the tests and the entry
 npm run check:pack          # every module the entry imports is in the tarball
 ```
 
@@ -108,9 +110,10 @@ resolution — it exists for checkouts loaded from `cli.json`; npm consumers
 reach the entry through the exports map instead.
 
 CI runs the suite on Linux, macOS and Windows for every pull request, alongside
-a transpile of the entry and the tarball check. Contributions are welcome —
-[CONTRIBUTING.md][contributing] has the workflow, and `AGENTS.md` documents the
-host-API traps behind the entry.
+a typecheck of the source (the entry included), a transpile of the entry and
+the tarball check. Contributions are welcome — [CONTRIBUTING.md][contributing]
+has the workflow, and `AGENTS.md` documents the host-API traps behind the
+entry.
 
 ## Publishing
 

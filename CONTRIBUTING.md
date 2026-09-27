@@ -14,14 +14,17 @@ problems go through [SECURITY.md](SECURITY.md), never a public issue.
 
 ## Working on the plugin
 
-Bun is the only requirement — there is no install step, no build step and no
-lockfile, because the tests import only local modules. A bare checkout runs:
+Bun is the only requirement. The tests import only local modules, so they need
+no install and no build; the typechecker is the one command that wants the
+development dependencies pinned by `bun.lock`:
 
 ```sh
 git clone https://github.com/rashidrazak/opencode-status-line.git
 cd opencode-status-line
-bun test                    # the whole suite
-bun test test/rate.test.ts  # one module
+bun test                    # the whole suite — no install needed
+bun test test/rate.test.ts  # one module — no install needed
+bun install                 # once, for the typechecker
+bun run typecheck           # src/, the tests and the entry
 npm run check:pack          # the tarball consumers install
 ```
 
@@ -44,6 +47,8 @@ the TSX on load and reloads the plugin when a file it imports is saved:
 
 - Add or extend a test in `test/<module>.test.ts` for every behaviour change
   in a pure module.
+- Keep `bun run typecheck` green: it covers what the suite never imports,
+  including `src/tui.tsx`.
 - A new setting means `Config` + `DEFAULT_CONFIG` + validation in
   `src/config.ts`, plus the settings chapter and the summary table in
   `MANUAL.md`.
@@ -97,15 +102,17 @@ goes without one, so use it only where it adds signal.
 Before opening the pull request:
 
 ```sh
+bun run typecheck
 bun test
 npm run check:pack
 git diff --check
 ```
 
-CI must pass — the suite on Linux, macOS and Windows, a transpile of
-`src/tui.tsx`, and the tarball check — and `main` needs one approving review
-from a maintainer before merge. A new push dismisses an existing approval, so
-ask for a re-review once you have addressed the feedback.
+CI must pass — the suite on Linux, macOS and Windows, a typecheck of `src/`,
+the tests and the entry, a transpile of `src/tui.tsx`, and the tarball check —
+and `main` needs one approving review from a maintainer before merge. A new
+push dismisses an existing approval, so ask for a re-review once you have
+addressed the feedback.
 
 ## Releasing
 
