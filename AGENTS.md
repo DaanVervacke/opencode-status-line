@@ -161,7 +161,10 @@ options. Invalid files or values warn and are ignored, never fatal. Adding a
 key means `Config` + `DEFAULT_CONFIG` + validation in `src/config.ts`, plus
 `rateOptions` if it is maths, plus MANUAL.md — the key's chapter and
 `All settings at a glance`. README stays introductory; touch it only if the
-quick-start example or the feature list changed. `test/config.test.ts` injects
+quick-start example or the feature list changed. User-visible changes also ride
+under `## [Unreleased]` in `CHANGELOG.md`: each release takes that version's
+section as its GitHub Release body (`scripts/changelog-section.mjs`), and the
+release fails before publishing without it. `test/config.test.ts` injects
 a fake `read`; never touch disk from a test.
 `colors.palette` resolves through `src/palette.ts`: a family name follows
 `context.themeMode` (the host's resolved `dark`/`light`, never `system`), and a
@@ -179,8 +182,9 @@ nothing untracked in, no root shim, every `exports` target present — and CI
 runs it on every pull request. `.github/workflows/publish.yml` runs on a pushed
 `v*` tag and on a published Release: it publishes with npm trusted publishing
 (OIDC, `id-token: write`) — no `NPM_TOKEN`, provenance automatic — and creates
-the GitHub Release with generated notes. Every step checks instead of assuming
-(tag against `package.json`, version on the registry, existing Release), so
+the GitHub Release from the version's `CHANGELOG.md` section, checked before
+publishing. Every step checks instead of assuming (tag against `package.json`,
+changelog section, version on the registry, existing Release), so
 both events are safe and a release is just `npm version` + `git push
 --follow-tags`. The one-time npm setup (hand-published bootstrap,
 trusted-publisher fields) lives in `RELEASING.md`. Don't add a publish token

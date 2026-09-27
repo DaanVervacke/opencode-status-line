@@ -49,6 +49,8 @@ the TSX on load and reloads the plugin when a file it imports is saved:
   `MANUAL.md`.
 - User-visible changes reach `README.md` only if the feature list or quick
   start changed; the manual carries the detail.
+- User-visible changes get a bullet under `## [Unreleased]` in `CHANGELOG.md`;
+  each release's section becomes its GitHub Release body.
 - `npm run check:pack` must stay green: every module the entry imports has to
   be packed, and the package must not grow a build step or a lockfile.
 

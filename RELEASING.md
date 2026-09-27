@@ -2,9 +2,9 @@
 
 Publishing is automated in [`.github/workflows/publish.yml`](.github/workflows/publish.yml):
 pushing the `v*` tag that `npm version` creates publishes the tagged version to
-npm and creates the GitHub Release with generated notes, in one run.
-Authentication is npm **trusted publishing** (OIDC) — no `NPM_TOKEN` secret
-exists, and npm attaches a provenance attestation automatically.
+npm and creates the GitHub Release from the version's `CHANGELOG.md` section,
+in one run. Authentication is npm **trusted publishing** (OIDC) — no `NPM_TOKEN`
+secret exists, and npm attaches a provenance attestation automatically.
 
 ## One-time npm setup
 
@@ -46,11 +46,11 @@ npm requires it to configure trusted publishers.
    long-lived tokens stop being able to publish; delete any token you no longer
    need.
 
-For the bootstrap version, give it a Release once npm has it — the workflow
-finds the version already published and only creates the Release:
+For the bootstrap version, push its tag once npm has it — the workflow finds
+the version already published and only creates the Release:
 
 ```sh
-gh release create v0.1.0 --generate-notes
+git tag v0.1.0 && git push origin v0.1.0
 ```
 
 A hand-published version carries no provenance attestation; every version
@@ -62,6 +62,12 @@ From a clean `main`:
 
 ```sh
 git switch main && git pull
+
+# Move the `## [Unreleased]` entries under a new `## [X.Y.Z] - YYYY-MM-DD`
+# heading (keeping an empty Unreleased) and commit that first.
+$EDITOR CHANGELOG.md
+git commit -am "docs: release X.Y.Z"
+
 npm version minor                  # or patch / major; commits package.json and tags vX.Y.Z
 git push origin main --follow-tags
 ```
@@ -69,20 +75,23 @@ git push origin main --follow-tags
 That is the whole release. Pushing the tag triggers `publish.yml`, which:
 
 1. checks out the tag and verifies it matches `package.json`;
-2. runs the test suite;
-3. publishes with `--tag latest` — or `--tag next` when the version has a
+2. verifies `CHANGELOG.md` has a non-empty section for the version — its body
+   becomes the Release notes;
+3. runs the test suite;
+4. publishes with `--tag latest` — or `--tag next` when the version has a
    pre-release suffix — and skips with a notice if that version is already on
    the registry;
-4. creates the GitHub Release with notes generated from the commits, marked as
-   a pre-release for a pre-release version, unless the Release already exists;
-5. lets npm attach provenance, visible on the package page.
+5. creates the GitHub Release from the changelog section, marked as a
+   pre-release for a pre-release version, unless the Release already exists;
+6. lets npm attach provenance, visible on the package page.
 
 Creating the Release by hand (`gh release create …` or the web UI) runs the same
 workflow; every step skips what already exists, so the tag and the Release can
 never publish the same version twice.
 
-No changelog file is maintained: the GitHub Release notes, generated from the
-commits, are the changelog. Verify what is live after a release:
+`CHANGELOG.md` is the single source of release notes: the workflow fails before
+anything is published when the tagged version has no section, so the registry
+never gets ahead of the file. Verify what is live after a release:
 
 ```sh
 npm view opencode-status-line version dist-tags
@@ -97,6 +106,9 @@ gh release view "v$(node -p "require('./package.json').version")"
   not validated until a publish uses it.
 - **Wrong version**: the tag and `package.json` disagree; the check runs before
   anything is uploaded.
+- **Missing changelog section**: `node scripts/changelog-section.mjs <version>`
+  prints the body or names what is missing. The release fails before npm is
+  touched, so the registry stays clean.
 - **Version already exists**: the workflow treats this as success and skips.
   Bump the version for new contents.
 - **Re-run**: Actions → Publish → the failed run → *Re-run jobs* is safe; every
