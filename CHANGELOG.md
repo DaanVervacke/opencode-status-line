@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-09-27
+## [1.0.0] - 2026-09-28
 
 Initial release.
 
@@ -42,5 +42,5 @@ Initial release.
   project's `.opencode-status-line.json` and plugin entry options, validated
   with warnings that never break the line
 
-[Unreleased]: https://github.com/rashidrazak/opencode-status-line/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/rashidrazak/opencode-status-line/releases/tag/v0.1.0
+[Unreleased]: https://github.com/rashidrazak/opencode-status-line/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/rashidrazak/opencode-status-line/releases/tag/v1.0.0

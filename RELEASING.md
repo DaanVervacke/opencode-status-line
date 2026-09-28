@@ -13,7 +13,7 @@ tag whose commit is not on `main`, so a tag cut on a branch cannot publish.
 ## One-time npm setup
 
 npm only offers its trusted-publisher settings page once the package exists, so
-the first version is published by hand (this is how `0.1.0` is bootstrapped).
+the first version is published by hand (this is how `1.0.0` is bootstrapped).
 That is the only time publishing happens outside CI, and every step of the
 workflow skips what already exists, so the bootstrap tag or Release is safe to
 create afterwards. The npm account needs two-factor authentication enabled —
@@ -54,7 +54,7 @@ For the bootstrap version, push its tag once npm has it — the workflow finds
 the version already published and only creates the Release:
 
 ```sh
-git tag v0.1.0 && git push origin v0.1.0
+git tag v1.0.0 && git push origin v1.0.0
 ```
 
 A hand-published version carries no provenance attestation; every version
