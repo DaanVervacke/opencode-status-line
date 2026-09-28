@@ -8,13 +8,19 @@ A status line for [OpenCode](https://opencode.ai) v2's terminal UI. It shows
 context window usage, cache usage, streaming speed, cost, elapsed time and
 uncommitted changes in one configurable row.
 
+<p align="center">
+  <img src="assets/status-line.png" alt="A session with the status line at the bottom, showing context, cache, speed, cost, time and uncommitted changes" width="1080" />
+</p>
+
+The line itself:
+
 ```
-██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m │ +42 -7
+███········▏ 26% — 262.0k │ ⧉ 99.6% — 260.9k │ ██████·····▏ ↯ 158 · μ  88 tok/s │ +6 -1 │ $0.18 │ 57m11s
 ```
 
 From left to right, the line shows context window usage, cache usage, current
-speed (`↯`) and turn average (`μ`), session cost, elapsed time, and
-uncommitted changes. Segments with nothing to show are hidden.
+speed (`↯`) and turn average (`μ`) speed, uncommitted changes, session cost,
+and elapsed time. Segments with nothing to show are hidden.
 
 ## What you get
 

@@ -24,7 +24,8 @@
     "./tui": "./src/tui.tsx"
   },
   "files": [
-    "src"
+    "src",
+    "assets"
   ],
   "scripts": {
     "test": "bun test",
