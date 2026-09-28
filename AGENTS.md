@@ -25,7 +25,7 @@ introduction; `MANUAL.md` is the exhaustive user reference.
 - **The root `tui.tsx` is a load-bearing shim** re-exporting `src/tui.tsx`. The
   running 2.0.16 loader resolves a directory plugin through `<dir>/tui` before
   checking `package.json` exports; deleting the shim drops the plugin from the
-  live TUI. npm consumers resolve `opencode-status-line/tui` through exports to
+  live TUI. npm consumers resolve `@rashidrazak/opencode-status-line/tui` through exports to
   `src/tui.tsx` instead.
 - Internal imports carry `.ts`/`.tsx` extensions (`./rate.ts`); the host
   resolves them verbatim, so keep that style.

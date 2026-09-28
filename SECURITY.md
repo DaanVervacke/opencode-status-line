@@ -7,7 +7,7 @@ release on npm. OpenCode caches the installed plugin by version and reuses that
 copy on startup, so an older version keeps running until it is removed:
 
 ```sh
-rm -rf ~/.cache/opencode/packages/opencode-status-line*
+rm -rf ~/.cache/opencode/npm/@rashidrazak/opencode-status-line*
 ```
 
 Then restart OpenCode.

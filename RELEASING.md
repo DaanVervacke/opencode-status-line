@@ -14,6 +14,8 @@ tag whose commit is not on `main`, so a tag cut on a branch cannot publish.
 
 npm only offers its trusted-publisher settings page once the package exists, so
 the first version is published by hand (this is how `1.0.0` is bootstrapped).
+The package is scoped as `@rashidrazak/opencode-status-line`: npm's registry
+rejects the unscoped name as too similar to the existing `opencode-statusline`.
 That is the only time publishing happens outside CI, and every step of the
 workflow skips what already exists, so the bootstrap tag or Release is safe to
 create afterwards. The npm account needs two-factor authentication enabled —
@@ -99,7 +101,7 @@ anything is published when the tagged version has no section, so the registry
 never gets ahead of the file. Verify what is live after a release:
 
 ```sh
-npm view opencode-status-line version dist-tags
+npm view @rashidrazak/opencode-status-line version dist-tags
 gh release view "v$(node -p "require('./package.json').version")"
 ```
 

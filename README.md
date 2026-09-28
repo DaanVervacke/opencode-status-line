@@ -1,7 +1,7 @@
 # opencode-status-line
 
 [![CI](https://github.com/rashidrazak/opencode-status-line/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rashidrazak/opencode-status-line/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/opencode-status-line)](https://www.npmjs.com/package/opencode-status-line)
+[![npm](https://img.shields.io/npm/v/@rashidrazak/opencode-status-line)](https://www.npmjs.com/package/@rashidrazak/opencode-status-line)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rashidrazak/opencode-status-line/blob/main/LICENSE)
 
 A live status line for [OpenCode](https://opencode.ai) v2's terminal UI —
@@ -43,7 +43,7 @@ From npm:
 ```
 ~/.config/opencode/cli.json
 {
-  "plugins": ["opencode-status-line"]
+  "plugins": ["@rashidrazak/opencode-status-line"]
 }
 ```
 

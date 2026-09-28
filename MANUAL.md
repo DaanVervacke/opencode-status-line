@@ -106,7 +106,7 @@ The plugin is CLI-only, so it goes in `~/.config/opencode/cli.json`, not
 
 ```json
 {
-  "plugins": ["opencode-status-line"]
+  "plugins": ["@rashidrazak/opencode-status-line"]
 }
 ```
 
