@@ -628,11 +628,17 @@ export default Plugin.define({
      * registered from `setup` throws "Keymap.Provider is missing" and takes the
      * whole plugin down with it. The `app` slot's render runs inside that tree,
      * once, and owns the layer from there (the pattern the CLI plugin docs use).
+     *
+     * The layer must be `mode: "global"`. v2 pushes `autocomplete` while the
+     * slash list is open and `modal` while a dialog is, and a layer that names
+     * no mode is pinned to `base`, which disables it in exactly the two places
+     * a command is looked for. Mode-less commands therefore never appear.
      */
     context.ui.slot({
       append: "app",
       render: () => {
         context.keymap.layer(() => ({
+          mode: "global",
           commands: [
             {
               id: "opencode-status-line.stats",

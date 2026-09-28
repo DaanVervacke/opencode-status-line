@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- `/opencode-status-line` (alias `/tps`) was unreachable: its keymap layer was
+  pinned to the `base` input mode, which v2 disables while the slash
+  autocomplete or a dialog is open. The layer is now registered as `global`.
+
 ## [1.0.0] - 2026-09-28
 
 Initial release.
