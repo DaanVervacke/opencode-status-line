@@ -52,7 +52,11 @@ Keep new logic in the pure modules so it can be tested without a terminal.
 
 - Register the keymap layer inside the `app` slot's `render`, never directly in
   `setup`: v2 keeps the keymap provider in the component tree, so a `setup`
-  registration throws `Keymap.Provider is missing` and kills the plugin.
+  registration throws `Keymap.Provider is missing` and kills the plugin. Give
+  the layer `mode: "global"`: a layer that names no mode is pinned to `base`,
+  and v2 pushes `autocomplete` while the slash list is open and `modal` while a
+  dialog is, so a mode-less command is unreachable in the two places it would
+  be found.
 - Build rendered parts inside a `createMemo`. `Show` calls its children
   untracked, so a plain array is evaluated once and the line never repaints.
 - Route every event handler through `safely`; an uncaught throw inside one can
