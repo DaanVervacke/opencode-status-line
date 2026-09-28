@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-29
+
 ### Fixed
 
 - `/opencode-status-line` (alias `/tps`) was unreachable: its keymap layer was
@@ -48,5 +50,6 @@ Initial release.
   project's `.opencode-status-line.json` and plugin entry options, validated
   with warnings that never break the line
 
-[Unreleased]: https://github.com/rashidrazak/opencode-status-line/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/rashidrazak/opencode-status-line/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/rashidrazak/opencode-status-line/releases/tag/v1.0.1
 [1.0.0]: https://github.com/rashidrazak/opencode-status-line/releases/tag/v1.0.0
