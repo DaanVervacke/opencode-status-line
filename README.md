@@ -4,68 +4,88 @@
 [![npm](https://img.shields.io/npm/v/@rashidrazak/opencode-status-line)](https://www.npmjs.com/package/@rashidrazak/opencode-status-line)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rashidrazak/opencode-status-line/blob/main/LICENSE)
 
-A live status line for [OpenCode](https://opencode.ai) v2's terminal UI —
-context window, cache, streaming speed, cost, elapsed time and uncommitted
-changes in one configurable row.
+A status line for [OpenCode](https://opencode.ai) v2's terminal UI. It shows
+context window usage, cache usage, streaming speed, cost, elapsed time and
+uncommitted changes in one configurable row.
 
 ```
 ██████▎····▏ 57% — 572.7k │ ⧉ 99.8% — 571.8k │ ████████▌·▏ ↯ 261 · μ 159 tok/s │ $0.75 │ 2h07m │ +42 -7
 ```
 
+From left to right, the line shows context window usage, cache usage, current
+speed (`↯`) and turn average (`μ`), session cost, elapsed time, and
+uncommitted changes. Segments with nothing to show are hidden.
+
 ## What you get
 
-- **Context window** — a pressure-coloured bar, the percentage used and the
-  token count: green while there is room, red near the limit.
-- **Cache** — how much of what the model read came from cache.
-- **Speed** — a gauge with the rate right now (`↯`) and the turn's average
-  (`μ`). A finished figure stays on screen, dimmed, so "happening now" and
-  "last known" never blur together.
-- **Cost and time** — the session's spend and how long it has been running.
-- **Uncommitted changes** — `+42 -7` across staged, unstaged and untracked
-  files, straight from OpenCode's own VCS registry, with no `git` process
-  behind it.
-- **Running shells** — how many commands are executing right now; click the
+- **Context window**: a bar showing how full the context window is, the
+  percentage used, and the token count. The bar colour changes as the window
+  fills.
+- **Cache** (`⧉`): how much of the model's input came from cache, and the
+  cached token count.
+- **Speed**: the current streaming speed (`↯`) and the average for the turn
+  (`μ`). When a stream stops, the last reading stays on screen in a dimmed
+  colour.
+- **Cost and time**: the session's cost so far and how long it has been
+  running.
+- **Uncommitted changes**: added and removed line counts for staged, unstaged
+  and untracked files, taken from OpenCode's VCS status. No `git` command is
+  run.
+- **Running shells**: the number of commands running right now. Click the
   count to open the composer's Shell tab.
-- `/opencode-status-line` (alias `/tps`, also in the command palette) opens a
-  dialog with the numbers behind the meter.
+- `/opencode-status-line` (alias `/tps`): opens a dialog with the detailed
+  numbers behind the meter.
 
-Put the line wherever you like — one slot or several at once, each placement
-with its own segments: it wraps whole segments onto further rows when the
-window is narrow, stacks them one per row in a sidebar, and dresses itself in
-any of the bundled palettes — Catppuccin, Dracula, Gruvbox, Nord, Rosé Pine,
-Tokyo Night, or the flat `grey` and `white`.
+The line can be placed in one slot or in several at once, and each placement
+can show its own segments. When the window is narrow, whole segments move to
+the next row; in a sidebar they stack one per row. Built-in colour palettes:
+Catppuccin, Dracula, Gruvbox, Nord, Rosé Pine, Tokyo Night, and the flat
+`grey` and `white`.
 
 ## Install
 
-The plugin is CLI-only, so it belongs in `cli.json` (not `opencode.json`).
-From npm:
+Requires OpenCode v2. The plugin is CLI-only, so it is loaded from
+`~/.config/opencode/cli.json`, not `opencode.json`.
 
-```
-~/.config/opencode/cli.json
-{
-  "plugins": ["@rashidrazak/opencode-status-line"]
-}
-```
+1. Add the package to the `plugins` list. Create the file if it does not
+   exist, or add the package to the existing list:
 
-From a checkout, point `cli.json` at the directory — an absolute path, a path
-relative to the config directory, or a package name all work:
+   ```json
+   {
+     "plugins": ["@rashidrazak/opencode-status-line"]
+   }
+   ```
 
-```
-~/.config/opencode/cli.json
+2. Restart OpenCode and open a session. The line appears at the bottom of the
+   window, below OpenCode's own footer. Run `/opencode-status-line` (alias
+   `/tps`, also in the command palette) to open the stats dialog.
+
+OpenCode downloads the package and transpiles the plugin on load, so there is
+no build step.
+
+The line only appears while a session is open. If it does not appear during a
+session, check that the entry is in `cli.json` (not `opencode.json`) and
+restart OpenCode. For other problems, see the manual's [common questions and
+fixes][fixes]; if none of them apply, [open an issue][issues].
+
+To install from a checkout, point `cli.json` at the directory instead. An
+absolute path, a path relative to the config directory, or a package name all
+work:
+
+```json
 {
   "plugins": ["/path/to/opencode-status-line"]
 }
 ```
 
-No build step in either case: OpenCode transpiles `tui.tsx` on load, and edits
-to a checkout hot-reload straight from it.
+Changes to a checkout hot-reload, so nothing needs rebuilding.
 
 ## Quick start
 
-Settings are optional JSON. Put them in
+Configuration is optional and written in JSON. Place it in
 `~/.config/opencode/opencode-status-line.json` for every project, or in
-`.opencode-status-line.json` in a project folder; the project file wins where
-both set a key. A first change:
+`.opencode-status-line.json` in a project folder. The project file wins where
+both set the same key. For example:
 
 ```json
 {
@@ -75,67 +95,75 @@ both set a key. A first change:
 }
 ```
 
-That switches the glyphs to words, dresses the line in Catppuccin, and draws a
-wider speed gauge. Invalid files and values only warn — they never break the
-line.
+This changes the labels from glyphs to words, applies the Catppuccin palette,
+and widens the speed gauge. Settings are read when the plugin loads, so
+restart OpenCode to apply a change. Invalid files and values produce a warning
+and are ignored.
 
 ## Full manual
 
 The [customization manual][manual] is the complete reference:
 
 - [every setting, with its default and allowed values][settings]
-- choosing and ordering the segments, per placement if you like
-- placing the line in one slot or several at once, and padding it
-- understanding and tuning the speed meter
-- the bundled palettes, custom colours and per-segment opt-outs
-- ready-made setups to copy
-- common questions and fixes
+- [choosing and ordering the segments][segments], per placement if you like
+- [placing the line in one slot or several at once][placement], and padding it
+- [understanding and tuning the speed meter][meter]
+- [the bundled palettes, custom colours and per-segment opt-outs][themes]
+- [ready-made setups][setups] to copy
+- [common questions and fixes][fixes]
 
 ## Development
 
 ```
-bun test                    # the whole suite — no OpenCode needed
+bun test                    # the whole suite, no OpenCode needed
 bun test test/rate.test.ts  # one module
 bun install                 # once, for the typechecker
 bun run typecheck           # src/, the tests and the entry
 npm run check:pack          # every module the entry imports is in the tarball
 ```
 
-`src/tui.tsx` is the plugin entry; `src/rate.ts` is the speed maths,
+`src/tui.tsx` is the plugin entry. `src/rate.ts` holds the speed maths,
 `src/render.ts` the gauge and context-bar geometry, `src/format.ts` the
 usage-line formatting, `src/diff.ts` the uncommitted-change counter,
 `src/palette.ts` the bundled colour palettes, and `src/config.ts` the JSON
-loader. The root `tui.tsx` re-exports the entry for OpenCode's directory plugin
-resolution — it exists for checkouts loaded from `cli.json`; npm consumers
-reach the entry through the exports map instead.
+loader. The root `tui.tsx` re-exports the entry so OpenCode can load the
+plugin from a checkout directory; npm consumers resolve the entry through the
+`exports` map.
 
-CI runs the suite on Linux, macOS and Windows for every pull request, alongside
-a typecheck of the source (the entry included), a transpile of the entry and
-the tarball check. Contributions are welcome — [CONTRIBUTING.md][contributing]
-has the workflow, and `AGENTS.md` documents the host-API traps behind the
-entry.
+CI runs the suite on Linux, macOS and Windows for every pull request, together
+with a typecheck of the source (the entry included), a transpile of the entry
+and the tarball check. Contributions are welcome; see
+[CONTRIBUTING.md][contributing] for the workflow, and `AGENTS.md` for the
+host-API traps behind the entry.
 
 ## Publishing
 
-The package ships source, not a bundle — OpenCode transpiles the TSX on load,
-so there is nothing to build. `package.json` exposes `./tui` → `src/tui.tsx`
-and its `files` allowlist carries the whole of `src/`, so the tarball holds the
-entry and every module it imports. `@opencode/plugin` is a dependency; the
-rendering peers (`@opentui/core`, `@opentui/solid`, `solid-js`) come from
-OpenCode. `npm run check:pack` verifies every module the entry imports is
-actually packed.
+The package is published as source, not as a bundle. OpenCode transpiles the
+TSX on load, so there is nothing to build. `package.json` maps `./tui` to
+`src/tui.tsx`, and the `files` allowlist includes all of `src/`, so the
+tarball contains the entry and every module it imports. `@opencode/plugin` is
+a dependency; the rendering peers (`@opentui/core`, `@opentui/solid`,
+`solid-js`) are provided by OpenCode. `npm run check:pack` verifies that every
+module the entry imports is included in the tarball.
 
-Publishing runs in CI, not from a laptop: pushing a `v*` version tag — what
-`npm version` creates — triggers `.github/workflows/publish.yml`, which
-publishes with npm trusted publishing (OIDC) and creates the GitHub Release
-from the version's changelog section in the same run; creating the Release by
-hand works too. There is no repository secret, provenance is attached
-automatically, the tagged commit must be on `main` and the tag must match
-`package.json`, and everything that already exists (a published version, a
-Release) is skipped rather than failed, so re-runs and the hand-published
-bootstrap release are safe. Maintainers: see [RELEASING.md][releasing].
+Releases are published by CI. Pushing a `v*` version tag (created by
+`npm version`) triggers `.github/workflows/publish.yml`, which publishes with
+npm trusted publishing (OIDC) and creates the GitHub Release from that
+version's changelog section in the same run. Creating the Release by hand also
+works. No repository secret is needed, and provenance is attached
+automatically. The tagged commit must be on `main`, and the tag must match the
+`package.json` version. Versions and Releases that already exist are skipped
+rather than treated as errors, so re-runs and the hand-published bootstrap
+release are safe. Maintainers: see [RELEASING.md][releasing].
 
 [manual]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md
 [settings]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#10-all-settings-at-a-glance
+[segments]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#3-pick-the-parts-you-want
+[placement]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#4-move-the-line-around
+[meter]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#5-understand-and-tune-the-speed-meter
+[themes]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#6-colours-and-themes
+[setups]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#11-ready-made-setups
+[fixes]: https://github.com/rashidrazak/opencode-status-line/blob/main/MANUAL.md#12-common-questions-and-fixes
+[issues]: https://github.com/rashidrazak/opencode-status-line/issues
 [contributing]: https://github.com/rashidrazak/opencode-status-line/blob/main/CONTRIBUTING.md
 [releasing]: https://github.com/rashidrazak/opencode-status-line/blob/main/RELEASING.md
