@@ -14,8 +14,9 @@ updates:
     open-pull-requests-limit: 3
 
   # Runtime and peer dependencies. @opencode/plugin deliberately follows the
-  # host ("latest"), so Dependabot only watches the rendering peers.
-  - package-ecosystem: npm
+  # host ("latest"), so Dependabot only watches the rendering peers. The lock
+  # is bun.lock, so this package must use the bun ecosystem, not npm.
+  - package-ecosystem: bun
     directory: "/"
     schedule:
       interval: weekly
