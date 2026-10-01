@@ -25,7 +25,8 @@
   },
   "files": [
     "src",
-    "assets"
+    "assets",
+    "tsconfig.json"
   ],
   "scripts": {
     "test": "bun test",
