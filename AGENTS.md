@@ -16,6 +16,15 @@ introduction; `MANUAL.md` is the exhaustive user reference.
   `.github/workflows/ci.yml`; releases are `.github/workflows/publish.yml`, not
   a laptop. `main` takes pull requests only: green CI plus one approving
   review (the maintainer bypasses for their own work).
+- **The entry's JSX pragma is load-bearing.** `src/tui.tsx` opens with
+  `/** @jsxImportSource @opentui/solid */`. OpenCode imports the published TSX
+  with a runtime `import()`, and Bun resolves runtime JSX from the project,
+  never from the package's own `tsconfig.json`; without the pragma an npm
+  install compiles the entry against React and dies with `Cannot find package
+  'react'`. The checkout hides this — the host's Solid transform covers TSX
+  outside `node_modules` — and `bun build` proves nothing, because it reads
+  file-relative tsconfigs the runtime ignores. The tarball ships
+  `tsconfig.json` too; only file-relative tooling reads it.
 - **`src/tui.tsx` is the plugin entry**, loaded straight from this checkout —
   the live host's `~/.config/opencode/cli.json` lists the directory. OpenCode
   transpiles the TSX on load and hot-reloads on save, so a broken save shows up
@@ -50,6 +59,10 @@ Keep new logic in the pure modules so it can be tested without a terminal.
 
 ### Entry rules — every edit to `src/tui.tsx`
 
+- Keep the file's first line `/** @jsxImportSource @opentui/solid */`. The
+  published entry is transpiled at runtime, where the packed `tsconfig.json`
+  is never read; without the pragma npm installs fail with `Cannot find
+  package 'react'` (see *What is unusual here*).
 - Register the keymap layer inside the `app` slot's `render`, never directly in
   `setup`: v2 keeps the keymap provider in the component tree, so a `setup`
   registration throws `Keymap.Provider is missing` and kills the plugin. Give

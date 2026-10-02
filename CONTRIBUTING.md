@@ -57,7 +57,10 @@ the TSX on load and reloads the plugin when a file it imports is saved:
 - User-visible changes get a bullet under `## [Unreleased]` in `CHANGELOG.md`;
   each release's section becomes its GitHub Release body.
 - `npm run check:pack` must stay green: every module the entry imports has to
-  be packed, and the package must not grow a build step or a lockfile.
+  be packed, and the package must not grow a build step or a lockfile. Keep
+  `/** @jsxImportSource @opentui/solid */` first in `src/tui.tsx`: npm
+  consumers transpile the entry at runtime, where the packed `tsconfig.json`
+  is never read.
 
 ### Code and comments
 

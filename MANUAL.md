@@ -802,3 +802,8 @@ defaults with a warning.
 That is the wrapping at work. Whole segments move to the next row, and a single
 segment wider than the line is cut with an `…`. Widen the window and the line
 returns to one row.
+
+**The log says `Cannot find package 'react'` and the line never appears.**
+Versions before 1.0.2 compiled the entry against the React runtime when
+installed from npm, and React is not a dependency. Update the plugin to 1.0.2
+or newer — if `cli.json` pins a version, bump it — and restart OpenCode.
