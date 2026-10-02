@@ -8,6 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- npm installs failed to load with `Cannot find package 'react'`: OpenCode
+  imports the published `src/tui.tsx` from `node_modules`, where Bun ignores a
+  package-local `tsconfig.json` and compiled the JSX against the React runtime.
+  The entry now carries a `@jsxImportSource @opentui/solid` pragma, which Bun
+  honors at runtime in every install location.
+
 ## [1.0.1] - 2026-09-29
 
 ### Fixed

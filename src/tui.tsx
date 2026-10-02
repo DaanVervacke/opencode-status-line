@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/solid */
 /**
  * opencode-status-line — a live usage-and-speed status line for OpenCode's CLI
  * prompt footer: context window, cache, streaming speed, cost, elapsed time
